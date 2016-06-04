@@ -360,8 +360,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(), "Starting the game...");
 			long seed1 = System.nanoTime();
 			Random random1 = new Random(seed1);
-			int totalRows = 3;
-			int totalCols = 3;
+			int totalRows = 5;
+			int totalCols = 5;
 			List<String> words = generateWords(wordList, totalRows * totalCols,
 					random1);
 
@@ -373,8 +373,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			Faction neutralFaction = new Faction("Neutral");
 			Faction assassinFaction = new Faction("Assassin");
 
-			int firstFactionCards = 2;
-			int secondFactionCards = 2;
+			int firstFactionCards = 9;
+			int secondFactionCards = 8;
 			int assassinCards = 1;
 
 			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(),
@@ -533,9 +533,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						getUsernameString(event.getSender())
 								+ ", hold your horses!  A clue has not been given yet!");
 				return;
+			} else if (game.getRemainingGuesses() == game.getClue().getAmount()) {
+				session.sendMessage(event.getChannel(),
+						"You must make at least one guess before you can end your turn!");
+				return;
 			}
 			game.changeTurns();
-			session.sendMessage(getCurrentChannel(), getUsernameString(event.getSender())+" has ended the turn.");
+			session.sendMessage(getCurrentChannel(),
+					getUsernameString(event.getSender())
+							+ " has ended the turn.");
 			session.sendMessage(getCurrentChannel(), printCardGrid());
 			session.sendMessage(getCurrentChannel(), printCurrentTurn());
 			session.sendMessage(getCurrentChannel(), printGivenClue());
@@ -773,7 +779,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private String printCardGrid(boolean forLeader) {
-		int longestWordLength = 0;
+		int longestWordLength = 10;
 		for (String word : game.getGrid().getAllWords()) {
 			longestWordLength = Math.max(longestWordLength, word.length());
 		}
