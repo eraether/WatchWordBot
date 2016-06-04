@@ -1,0 +1,33 @@
+buildscript {
+	repositories {
+		mavenCentral()
+		jcenter()
+	}
+	dependencies {
+		classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.0'
+		classpath 'eu.appsatori:gradle-fatjar-plugin:0.3'
+	}
+}
+
+apply plugin: 'eu.appsatori.fatjar'
+apply plugin: 'eclipse'
+apply plugin: 'java'
+
+repositories {
+	mavenCentral()
+	jcenter()
+}
+
+dependencies{
+	compile group: 'com.ullink.slack', name: 'simpleslackapi', version: '0.5.1'
+	compile group: 'commons-io', name: 'commons-io', version: '2.5'
+	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
+	compile group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
+	
+	
+}
+
+task execute(type:JavaExec) {
+	main = 'com.raether.watchwordbot.Runner'
+	classpath = sourceSets.main.runtimeClasspath
+ }
