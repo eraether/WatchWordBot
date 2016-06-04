@@ -30,4 +30,5 @@ dependencies{
 task execute(type:JavaExec) {
 	main = 'com.raether.watchwordbot.Runner'
 	classpath = sourceSets.main.runtimeClasspath
+	args = [getProperty("apiKey")]
  }
