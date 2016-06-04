@@ -842,39 +842,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return outputWords;
 	}
 
-	// alters players list
-	// private static TurnOrder distributePlayers(Collection<Player> players,
-	// List<String> factionNames, Random rand) {
-	//
-	// List<List<Player>> factionDistribution = new ArrayList<List<Player>>();
-	// for (int x = 0; x < factionNames.size(); x++) {
-	// factionDistribution.add(new ArrayList<Player>());
-	// }
-	//
-	// List<Player> playersList = new ArrayList<Player>();
-	// playersList.addAll(players);
-	// Collections.shuffle(playersList, rand);
-	//
-	// for (int x = 0; x < playersList.size(); x++) {
-	// List<Player> faction = factionDistribution.get(x
-	// % factionDistribution.size());
-	// faction.add(playersList.get(x));
-	// }
-	//
-	// List<Faction> factions = new ArrayList<Faction>();
-	// for (int x = 0; x < factionNames.size(); x++) {
-	// List<Player> factionPlayers = factionDistribution.get(x);
-	// Player leader = null;
-	// if (factionPlayers.isEmpty() == false) {
-	// leader = factionPlayers.get(0);
-	// }
-	// factions.add(new Faction(factionNames.get(x), leader,
-	// factionPlayers));
-	// }
-	// TurnOrder turnOrder = new TurnOrder(factions);
-	// return turnOrder;
-	// }
-
 	private static String getWatchWord(List<String> wordList, Random random) {
 		return wordList.get((int) (wordList.size() * random.nextDouble()));
 	}
@@ -938,17 +905,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private void printUsage(SlackChannel channel, String str) {
 		this.getSession().sendMessage(channel, "Usage: " + str);
 	}
-
-	// private void printPlayers(SlackChannel channel) {
-	// String output = watchWordLobby.getUsers().size()
-	// + " Player(s) currently in lobby:\n";
-	// for (SlackUser user : watchWordLobby.getUsers()) {
-	// output += user.getUserName() + " (" + user.getRealName() + " | "
-	// + getSession().getPresence(user) + "\n";
-	// }
-	// this.getSession().sendMessage(channel, output);
-	//
-	// }
 
 	private void printIncorrectGameState(SlackChannel channel,
 			GameState correctState) {

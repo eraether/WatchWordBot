@@ -13,12 +13,6 @@ public class WatchWordLobby {
 	private TurnOrder turnOrder;
 	private BidiMap<SlackUser, Player> playerMapping = new DualHashBidiMap<SlackUser, Player>();
 
-	// TurnOrder turnOrder = distributePlayers(
-	// this.playerMapping.values(), Arrays.asList("Red", "Blue"),
-	// new Random());
-	// this.playerMapping = createPlayerMapping(this.watchWordLobby
-	// .getUsers());
-
 	public WatchWordLobby(SlackChannel channel, TurnOrder order) {
 		this.channel = channel;
 		this.turnOrder = order;
