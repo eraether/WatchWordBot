@@ -25,6 +25,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.ullink.slack.simpleslackapi.SlackChannel;
+import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
 import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
@@ -39,6 +40,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private GameState currentGameState = GameState.IDLE;
 	private List<String> wordList = null;
 	private WatchWordGame game;
+
+	private final static boolean DEBUG = false;
 
 	public WatchWordBot(String apiKey) {
 		setAPIKey(apiKey);
@@ -147,7 +150,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			if (args.isEmpty() || args.peek().equals("opt-out")) {
 				validStart = true;
 				for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
-					if (user.isBot() == false) {
+					SlackPresence presence = session.getPresence(user);
+					if (user.isBot() == false
+							&& (presence == SlackPresence.ACTIVE || presence == SlackPresence.AWAY)) {
 						users.add(user);
 					}
 				}
@@ -355,8 +360,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(), "Starting the game...");
 			long seed1 = System.nanoTime();
 			Random random1 = new Random(seed1);
-			int totalRows = 2;
-			int totalCols = 2;
+			int totalRows = 3;
+			int totalCols = 3;
 			List<String> words = generateWords(wordList, totalRows * totalCols,
 					random1);
 
@@ -368,8 +373,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			Faction neutralFaction = new Faction("Neutral");
 			Faction assassinFaction = new Faction("Assassin");
 
-			int firstFactionCards = 1;
-			int secondFactionCards = 1;
+			int firstFactionCards = 2;
+			int secondFactionCards = 2;
 			int assassinCards = 1;
 
 			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(),
@@ -389,7 +394,154 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(),
 					printFactions(watchWordLobby));
 			session.sendMessage(getCurrentChannel(), printCurrentTurn());
-		} else if (command.equals("guess")) {
+			session.sendMessage(getCurrentChannel(), printGivenClue());
+
+			for (Faction faction : game.getTurnOrder().getAllFactions()) {
+				if (faction.hasLeader()) {
+					SlackUser user = getWatchWordLobby().getUser(
+							faction.getLeader());
+
+					SlackUser opponent = getWatchWordLobby().getUser(
+							game.getTurnOrder().getFactionAfter(faction)
+									.getLeader());
+					session.sendMessageToUser(
+							user,
+							printWordSmithInstructions(user, opponent, faction,
+									game.getAssassinFaction()), null);
+					session.sendMessageToUser(user, printCardGrid(true), null);
+				}
+			}
+
+		} else if (command.equals("clue")) {
+			if (currentGameState != GameState.GAME) {
+				printIncorrectGameState(event.getChannel(), GameState.GAME);
+				return;
+			}
+
+			Player player = getWatchWordLobby().getPlayer(event.getSender());
+			if (player == null) {
+				session.sendMessage(event.getChannel(),
+						"You are not in the game!");
+				return;
+			}
+
+			if (getWatchWordLobby().getTurnOrder().getFactionFor(player) != game
+					.getTurnOrder().getCurrentTurn()) {
+				session.sendMessage(event.getChannel(),
+						"It is not your turn to give a clue!");
+				if (DEBUG) {
+					session.sendMessage(event.getChannel(),
+							"However, I'll allow it for now...");
+				} else {
+					return;
+				}
+			}
+
+			if (player != game.getTurnOrder().getCurrentTurn().getLeader()) {
+				session.sendMessage(event.getChannel(),
+						"Only the current turn's leader can give a clue.");
+				if (DEBUG) {
+					session.sendMessage(event.getChannel(),
+							"However, I'll allow it for now...");
+				} else {
+					return;
+				}
+			}
+			if (game.getClue() != null) {
+				session.sendMessage(event.getChannel(),
+						"A clue was already given.");
+				session.sendMessage(event.getChannel(), printGivenClue());
+				return;
+			}
+
+			if (args.size() != 2) {
+				printUsage(event.getChannel(), "clue <word> [amount|unlimited]");
+				return;
+			}
+
+			String word = args.pop();
+			String unparsedNumber = args.pop();
+			int totalGuesses = 0;
+			if (unparsedNumber.toLowerCase().startsWith("unlimited")) {
+				totalGuesses = 1000000;
+			} else {
+				try {
+					totalGuesses = Integer.parseInt(unparsedNumber);
+				} catch (Exception e) {
+					session.sendMessage(event.getChannel(), "Could not parse '"
+							+ unparsedNumber + "' as a number.");
+					return;
+				}
+				;
+			}
+
+			if (totalGuesses < 1) {
+				session.sendMessage(event.getChannel(),
+						"You must give a clue with at least one guess!");
+				return;
+			}
+
+			List<WordTile> tiles = game.getGrid().getTilesForWord(word);
+			if (!tiles.isEmpty()) {
+				session.sendMessage(event.getChannel(),
+						"Your clue matches tiles on the board!  Please give a different clue.");
+				return;
+			}
+
+			totalGuesses = totalGuesses + 1;// include bonus
+			game.giveClue(new WatchWordClue(word, totalGuesses));
+			session.sendMessage(getCurrentChannel(),
+					getUsernameString(event.getSender()) + " has given a clue.");
+			session.sendMessage(getCurrentChannel(), printGivenClue());
+		} else if (command.equals("end")) {
+			if (currentGameState != GameState.GAME) {
+				printIncorrectGameState(event.getChannel(), GameState.GAME);
+				return;
+			}
+			if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
+				session.sendMessage(event.getChannel(),
+						getUsernameString(event.getSender())
+								+ ", you are currently not in this game!");
+				return;
+			}
+			Player guesser = getWatchWordLobby().getPlayer(event.getSender());
+			Faction guesserFaction = game.getFactionForPlayer(guesser);
+
+			if (this.game.getTurnOrder().getCurrentTurn() != guesserFaction) {
+				session.sendMessage(event.getChannel(),
+						"It is not your turn to end!");
+				if (DEBUG) {
+					session.sendMessage(event.getChannel(),
+							"However, I'll allow it for now...");
+				} else {
+					return;
+				}
+			} else if (guesser == guesserFaction.getLeader()) {
+				session.sendMessage(
+						event.getChannel(),
+						getUsernameString(event.getSender())
+								+ ", you're the word smith.  You can't decide when your team ends their turn!");
+				if (DEBUG) {
+					session.sendMessage(event.getChannel(),
+							"However, I'll allow it for now...");
+				} else {
+					return;
+				}
+			} else if (!game.wasClueGivenThisTurn()) {
+				session.sendMessage(
+						event.getChannel(),
+						getUsernameString(event.getSender())
+								+ ", hold your horses!  A clue has not been given yet!");
+				return;
+			}
+			game.changeTurns();
+			session.sendMessage(getCurrentChannel(), getUsernameString(event.getSender())+" has ended the turn.");
+			session.sendMessage(getCurrentChannel(), printCardGrid());
+			session.sendMessage(getCurrentChannel(), printCurrentTurn());
+			session.sendMessage(getCurrentChannel(), printGivenClue());
+		}
+
+		else if (command.equals("guess")) {
 			if (currentGameState != GameState.GAME) {
 				printIncorrectGameState(event.getChannel(), GameState.GAME);
 				return;
@@ -423,9 +575,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				return;
 			} else {
 				WordTile guessedTile = results.get(0);
-				Faction guesserFaction = game
-						.getFactionForPlayer(watchWordLobby.getPlayer(event
-								.getSender()));
+				Player guesser = getWatchWordLobby().getPlayer(
+						event.getSender());
+				Faction guesserFaction = game.getFactionForPlayer(guesser);
 
 				if (this.game.getTurnOrder().getCurrentTurn() != guesserFaction) {
 					session.sendMessage(
@@ -436,21 +588,36 @@ public class WatchWordBot implements SlackMessagePostedListener {
 									+ " team, it is "
 									+ game.getTurnOrder().getCurrentTurn()
 											.getName() + "team's turn.)");
-					session.sendMessage(event.getChannel(),
-							"However, I'll allow it for now...");// return;
+					if (DEBUG) {
+						session.sendMessage(event.getChannel(),
+								"However, I'll allow it for now...");
+					} else {
+						return;
+					}
+				} else if (guesser == guesserFaction.getLeader()) {
+					session.sendMessage(
+							event.getChannel(),
+							getUsernameString(event.getSender())
+									+ ", you're the word smith.  You can't guess!");
+					if (DEBUG) {
+						session.sendMessage(event.getChannel(),
+								"However, I'll allow it for now...");
+					} else {
+						return;
+					}
 				} else if (!game.wasClueGivenThisTurn()) {
 					session.sendMessage(
 							event.getChannel(),
 							getUsernameString(event.getSender())
 									+ ", hold your horses!  A clue has not been given yet!");
-					session.sendMessage(event.getChannel(),
-							"However, I'll allow it for now...");// return;
+					return;
 				}
 
 				session.sendMessage(getCurrentChannel(),
 						getUsernameString(event.getSender()) + " has guessed "
 								+ results.get(0).getWord() + "!");
 
+				game.guess();
 				guessedTile.setRevealed(true);
 
 				Faction victor = null;
@@ -459,7 +626,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				boolean changeTurns = false;
 
 				if (guessedTile.getFaction().equals(game.getAssassinFaction())) {
-					game.removeFaction(guesserFaction);
+					victor = game.getTurnOrder()
+							.getFactionAfter(guesserFaction);
 					pickedAssassin = true;
 				}
 
@@ -525,10 +693,40 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 
 				session.sendMessage(getCurrentChannel(), printCardGrid());
-				session.sendMessage(getCurrentChannel(), printClueGiven());
 				session.sendMessage(getCurrentChannel(), printCurrentTurn());
+				session.sendMessage(getCurrentChannel(), printGivenClue());
+				for (Faction faction : game.getTurnOrder().getAllFactions()) {
+					if (faction.hasLeader()) {
+						session.sendMessageToUser(this.watchWordLobby
+								.getUser(faction.getLeader()),
+								printCardGrid(true), null);
+					}
+				}
 			}
 		}
+	}
+
+	private String printAbbreviatedFaction(Faction faction) {
+		return "(" + faction.getName().substring(0, 1) + ")";
+	}
+
+	private String printWordSmithInstructions(SlackUser user,
+			SlackUser opponent, Faction yourFaction, Faction assassinFaction) {
+		String out = "";
+		out += "Hi "
+				+ getUsernameString(user)
+				+ ", as the Word Smith, try to get your team to guess all of the words marked with "
+				+ yourFaction.getName() + " *"
+				+ printAbbreviatedFaction(yourFaction) + "*.\n";
+		out += "The only information you can give your team each turn is a single word, and the number of guesses your team can make.  When you're ready, type ```clue``` to give your team a word.\n";
+		out += "If your team guesses the Assassin card "
+				+ printAbbreviatedFaction(assassinFaction)
+				+ ", the game is immediately over.  Try your best to avoid hinting at the assassin.\n";
+		out += "If you aren't sure if your clue is legal, feel free to pm "
+				+ getUsernameString(opponent, true)
+				+ "and ask for clarification.\n";
+		out += "Good luck!";
+		return out;
 	}
 
 	public WatchWordLobby getWatchWordLobby() {
@@ -541,9 +739,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return out;
 	}
 
-	private String printClueGiven() {
+	private String printGivenClue() {
 		if (game.wasClueGivenThisTurn()) {
-			return "A clue has been given: " + game.getClue();
+			String out = "Current clue: " + game.getClue().getWord()
+					+ ", guesses remaining: ";
+			out += game.getRemainingGuesses() - 1;
+			if (game.getRemainingGuesses() == 1) {
+				out += " (Bonus Guess)";
+			}
+			return out;
 		} else {
 			return "A clue has not yet been given.  "
 					+ getUsernameString(getWatchWordLobby().getUser(
@@ -568,12 +772,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return out;
 	}
 
-	// need to send pms to leaders with full grid...
-	private String printCardGrid() {
+	private String printCardGrid(boolean forLeader) {
 		int longestWordLength = 0;
-		for (String word : this.wordList) {
+		for (String word : game.getGrid().getAllWords()) {
 			longestWordLength = Math.max(longestWordLength, word.length());
 		}
+
 		String out = "The WatchWords grid so far:\n```";
 		for (int row = 0; row < game.getGrid().getHeight(); row++) {
 			String line = "";
@@ -584,9 +788,14 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				if (tile.isRevealed()) {
 					tileString = "<" + tile.getFaction().getName() + ">";
 				}
-				tileString = "[ "
-						+ StringUtils.rightPad(tileString, longestWordLength)
-						+ " ]";
+
+				tileString = StringUtils
+						.rightPad(tileString, longestWordLength);
+				if (forLeader) {
+					tileString += " ("
+							+ tile.getFaction().getName().substring(0, 1) + ")";
+				}
+				tileString = "[ " + tileString + " ]";
 				line += tileString;
 			}
 			line += "\n";
@@ -596,10 +805,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return out;
 	}
 
+	private String printCardGrid() {
+		return printCardGrid(false);
+	}
+
 	private void finishGame() {
 		this.currentGameState = GameState.LOBBY;
 		this.game = null;
 		getWatchWordLobby().getTurnOrder().shuffleFactionLeaders();
+		getSession().sendMessage(getCurrentChannel(),
+				"\nReturning back to the game lobby...");
 		getSession().sendMessage(getCurrentChannel(),
 				printFactions(getWatchWordLobby()));
 	}

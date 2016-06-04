@@ -137,6 +137,11 @@ public class WatchWordGrid {
 		List<WordTile> exactMatchingTiles = new ArrayList<WordTile>();
 		List<WordTile> partialMatchingTiles = new ArrayList<WordTile>();
 		for (WordTile tile : this.words) {
+			if(tile.isRevealed())
+			{
+				continue;
+			}
+			
 			if (tile.getWord().equals(wordBeingGuessed)) {
 				exactMatchingTiles.add(tile);
 			}
@@ -152,6 +157,14 @@ public class WatchWordGrid {
 		}
 
 		return partialMatchingTiles;
+	}
+
+	public List<String> getAllWords() {
+		List<String> words = new ArrayList<String>();
+		for(WordTile tile : this.words){
+			words.add(tile.getWord());
+		}
+		return words;
 	}
 }
 
@@ -291,6 +304,10 @@ class TurnOrder {
 		for (Faction faction : allFactions) {
 			faction.shiftMembership();
 		}
+	}
+
+	public Faction getFactionAfter(Faction faction) {
+		return getFactionAtTurn(getTurnForFaction(faction)+1);
 	}
 }
 
