@@ -14,39 +14,34 @@ public class BuildableWatchWordGrid {
 		setWords(words);
 		this.width = width;
 		this.height = height;
-
 	}
 
 	private BuildableWatchWordGrid setWords(List<String> words) {
 		this.words = words;
-		this.owners = new ArrayList<Faction>();
+		this.owners = new ArrayList<>();
 		for (int x = 0; x < words.size(); x++) {
 			this.owners.add(null);
 		}
 		return this;
 	}
 
-	public BuildableWatchWordGrid randomlyAssign(Faction faction, int count,
+	public void randomlyAssign(Faction faction, int count,
 			Random rand) {
-		List<Integer> unassignedTileIndicies = getUnassignedTileIndicies();
-
-		if (unassignedTileIndicies.size() < count) {
-			return fillRemainder(faction);
+		List<Integer> unassignedTileIndices = getUnassignedTileIndices();
+		if (unassignedTileIndices.size() < count) {
+			fillRemainder(faction);
 		}
 
-		int assignedIndicies = 0;
-		while (assignedIndicies++ < count) {
-			int index = unassignedTileIndicies
-					.get((int) (unassignedTileIndicies.size() * rand
-							.nextDouble()));
+		for (int i = 0; i < count; i++) {
+			int randomIndex = rand.nextInt(unassignedTileIndices.size());
+			int index = unassignedTileIndices.get(randomIndex);
+			unassignedTileIndices.remove(randomIndex);
 			owners.set(index, faction);
 		}
-
-		return this;
 	}
 
-	private List<Integer> getUnassignedTileIndicies() {
-		List<Integer> ints = new ArrayList<Integer>();
+	private List<Integer> getUnassignedTileIndices() {
+		List<Integer> ints = new ArrayList<>();
 		for (int x = 0; x < owners.size(); x++) {
 			if (owners.get(x) == null) {
 				ints.add(x);
@@ -57,14 +52,14 @@ public class BuildableWatchWordGrid {
 	}
 
 	public BuildableWatchWordGrid fillRemainder(Faction faction) {
-		for (Integer index : getUnassignedTileIndicies()) {
+		for (Integer index : getUnassignedTileIndices()) {
 			owners.set(index, faction);
 		}
 		return this;
 	}
 
 	public WatchWordGrid build() {
-		List<WordTile> wordTiles = new ArrayList<WordTile>();
+		List<WordTile> wordTiles = new ArrayList<>();
 
 		for (int x = 0; x < words.size(); x++) {
 			String word = words.get(x);
