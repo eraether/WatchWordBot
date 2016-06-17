@@ -1,52 +1,44 @@
 package com.raether.watchwordbot;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-public class BuildableWatchWordGrid {
+class BuildableWatchWordGrid {
 	private List<String> words;
 	private List<Faction> owners;
 	private int width;
 	private int height;
 
-	public BuildableWatchWordGrid(List<String> words, int width, int height) {
+	BuildableWatchWordGrid(List<String> words, int width, int height) {
 		setWords(words);
 		this.width = width;
 		this.height = height;
-
 	}
 
 	private BuildableWatchWordGrid setWords(List<String> words) {
 		this.words = words;
-		this.owners = new ArrayList<Faction>();
+		this.owners = new ArrayList<>();
 		for (int x = 0; x < words.size(); x++) {
 			this.owners.add(null);
 		}
 		return this;
 	}
 
-	public BuildableWatchWordGrid randomlyAssign(Faction faction, int count,
+	void randomlyAssign(Faction faction, int count,
 			Random rand) {
 		List<Integer> unassignedTileIndicies = getUnassignedTileIndicies();
-
-		if (unassignedTileIndicies.size() < count) {
-			return fillRemainder(faction);
-		}
-
-		int assignedIndicies = 0;
-		while (assignedIndicies++ < count) {
-			int index = unassignedTileIndicies
-					.get((int) (unassignedTileIndicies.size() * rand
-							.nextDouble()));
+		for (int i = 0; i < count; i++) {
+			int randomIndex = rand.nextInt(unassignedTileIndicies.size());
+			int index = unassignedTileIndicies.get(randomIndex);
+			unassignedTileIndicies.remove(randomIndex);
 			owners.set(index, faction);
 		}
-
-		return this;
 	}
 
 	private List<Integer> getUnassignedTileIndicies() {
-		List<Integer> ints = new ArrayList<Integer>();
+		List<Integer> ints = new ArrayList<>();
 		for (int x = 0; x < owners.size(); x++) {
 			if (owners.get(x) == null) {
 				ints.add(x);
@@ -56,14 +48,14 @@ public class BuildableWatchWordGrid {
 		return ints;
 	}
 
-	public BuildableWatchWordGrid fillRemainder(Faction faction) {
+	BuildableWatchWordGrid fillRemainder(Faction faction) {
 		for (Integer index : getUnassignedTileIndicies()) {
 			owners.set(index, faction);
 		}
 		return this;
 	}
 
-	public WatchWordGrid build() {
+	WatchWordGrid build() {
 		List<WordTile> wordTiles = new ArrayList<WordTile>();
 
 		for (int x = 0; x < words.size(); x++) {

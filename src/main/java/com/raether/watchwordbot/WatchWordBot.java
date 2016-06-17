@@ -377,12 +377,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			int secondFactionCards = 8;
 			int assassinCards = 1;
 
-			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(),
-					firstFactionCards, random1);
-			buildableGrid.randomlyAssign(turnOrder.getNextTurn(),
-					secondFactionCards, random1);
-			buildableGrid.randomlyAssign(assassinFaction, assassinCards,
-					random1);
+			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(), firstFactionCards, random1);
+			buildableGrid.randomlyAssign(turnOrder.getNextTurn(), secondFactionCards, random1);
+			buildableGrid.randomlyAssign(assassinFaction, assassinCards, random1);
 			buildableGrid.fillRemainder(neutralFaction);
 			WatchWordGrid grid = buildableGrid.build();
 			WatchWordGame game = new WatchWordGame(grid, turnOrder,

@@ -3,16 +3,21 @@ package com.raether.watchwordbot;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Faction {
+class Faction {
 	private String factionName;
 	// unique set
-	private List<Player> players = new ArrayList<Player>();
+	private List<Player> players = new ArrayList<>();
 
-	public Faction(String factionName) {
+	Faction(String factionName) {
 		this.factionName = factionName;
 	}
 
-	public void shiftMembership() {
+	@Override
+	public String toString() {
+		return (new StringBuilder().append(this.factionName)).toString();
+	}
+
+	void shiftMembership() {
 		if (this.isEmpty()) {
 			return;
 		}
@@ -20,11 +25,11 @@ public class Faction {
 		players.add(0, lastPlayer);
 	}
 
-	public boolean isEmpty() {
+	private boolean isEmpty() {
 		return players.isEmpty();
 	}
 
-	public Integer getPlayerIndex(Player firstPlayer) {
+	Integer getPlayerIndex(Player firstPlayer) {
 		for (int x = 0; x < players.size(); x++) {
 			if (players.get(x) == firstPlayer) {
 				return x;
@@ -38,15 +43,15 @@ public class Faction {
 		this.players = players;
 	}
 
-	public String getName() {
+	String getName() {
 		return this.factionName;
 	}
 
-	public boolean hasLeader() {
+	boolean hasLeader() {
 		return getLeader() != null;
 	}
 
-	public Player getLeader() {
+	Player getLeader() {
 		if (players.isEmpty()) {
 			return null;
 		}
@@ -54,11 +59,11 @@ public class Faction {
 		return players.get(0);
 	}
 
-	public List<Player> getAllPlayers() {
+	List<Player> getAllPlayers() {
 		return this.players;
 	}
 
-	public boolean isLeader(Player player) {
+	boolean isLeader(Player player) {
 		return hasLeader() && (player == getLeader());
 	}
 
@@ -69,7 +74,7 @@ public class Faction {
 		return followers;
 	}
 
-	public boolean addPlayer(Player player) {
+	boolean addPlayer(Player player) {
 		if (players.contains(player)) {
 			return false;
 		}
@@ -77,7 +82,7 @@ public class Faction {
 		return true;
 	}
 
-	public boolean removePlayer(Player player) {
+	boolean removePlayer(Player player) {
 		return players.remove(player);
 	}
 }
