@@ -1,17 +1,16 @@
 package com.raether.watchwordbot;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-class BuildableWatchWordGrid {
+public class BuildableWatchWordGrid {
 	private List<String> words;
 	private List<Faction> owners;
 	private int width;
 	private int height;
 
-	BuildableWatchWordGrid(List<String> words, int width, int height) {
+	public BuildableWatchWordGrid(List<String> words, int width, int height) {
 		setWords(words);
 		this.width = width;
 		this.height = height;
@@ -26,9 +25,9 @@ class BuildableWatchWordGrid {
 		return this;
 	}
 
-	void randomlyAssign(Faction faction, int count,
+	public void randomlyAssign(Faction faction, int count,
 			Random rand) {
-		List<Integer> unassignedTileIndicies = getUnassignedTileIndicies();
+		List<Integer> unassignedTileIndicies = getUnassignedTileIndices();
 		for (int i = 0; i < count; i++) {
 			int randomIndex = rand.nextInt(unassignedTileIndicies.size());
 			int index = unassignedTileIndicies.get(randomIndex);
@@ -37,7 +36,7 @@ class BuildableWatchWordGrid {
 		}
 	}
 
-	private List<Integer> getUnassignedTileIndicies() {
+	private List<Integer> getUnassignedTileIndices() {
 		List<Integer> ints = new ArrayList<>();
 		for (int x = 0; x < owners.size(); x++) {
 			if (owners.get(x) == null) {
@@ -48,15 +47,15 @@ class BuildableWatchWordGrid {
 		return ints;
 	}
 
-	BuildableWatchWordGrid fillRemainder(Faction faction) {
-		for (Integer index : getUnassignedTileIndicies()) {
+	public BuildableWatchWordGrid fillRemainder(Faction faction) {
+		for (Integer index : getUnassignedTileIndices()) {
 			owners.set(index, faction);
 		}
 		return this;
 	}
 
 	WatchWordGrid build() {
-		List<WordTile> wordTiles = new ArrayList<WordTile>();
+		List<WordTile> wordTiles = new ArrayList<>();
 
 		for (int x = 0; x < words.size(); x++) {
 			String word = words.get(x);
