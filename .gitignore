@@ -4,4 +4,4 @@ build/
 bin/
 .settings/
 .gradle/
-.idea
+.idea/
