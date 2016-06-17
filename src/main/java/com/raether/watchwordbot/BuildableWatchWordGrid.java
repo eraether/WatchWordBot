@@ -27,7 +27,6 @@ public class BuildableWatchWordGrid {
 
 	public void randomlyAssign(Faction faction, int count,
 			Random rand) {
-
 		List<Integer> unassignedTileIndices = getUnassignedTileIndices();
 		if (unassignedTileIndices.size() < count) {
 			fillRemainder(faction);
