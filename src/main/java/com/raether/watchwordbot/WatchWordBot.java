@@ -682,7 +682,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					}
 					session.sendMessage(getCurrentChannel(), "Game over!  "
 							+ victor.getName()
-							+ " has won!  Congradulations to:\n" + victorString);
+							+ " has won!  Congratulations to:\n" + victorString);
 				}
 
 				if (victor != null) {
