@@ -3,11 +3,11 @@ package com.raether.watchwordbot;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,9 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.collections4.BidiMap;
-import org.apache.commons.collections4.bidimap.DualHashBidiMap;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.ullink.slack.simpleslackapi.SlackChannel;
@@ -56,9 +54,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	public void loadWordList() throws IOException {
-		File f = new File("src/main/resources/wordlist.txt");
-		System.out.println(f.getCanonicalPath());
-		List<String> words = FileUtils.readLines(f, "UTF-8");
+		InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("wordlist.txt");
+		System.out.println(in);
+		List<String> words = IOUtils.readLines(in, "UTF-8");
 		System.out.println(words.size());
 		Set<String> uniqueWords = new TreeSet<String>();
 		uniqueWords.addAll(words);
@@ -377,9 +375,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			int secondFactionCards = 8;
 			int assassinCards = 1;
 
-			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(), firstFactionCards, random1);
-			buildableGrid.randomlyAssign(turnOrder.getNextTurn(), secondFactionCards, random1);
-			buildableGrid.randomlyAssign(assassinFaction, assassinCards, random1);
+			buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(),
+					firstFactionCards, random1);
+			buildableGrid.randomlyAssign(turnOrder.getNextTurn(),
+					secondFactionCards, random1);
+			buildableGrid.randomlyAssign(assassinFaction, assassinCards,
+					random1);
 			buildableGrid.fillRemainder(neutralFaction);
 			WatchWordGrid grid = buildableGrid.build();
 			WatchWordGame game = new WatchWordGame(grid, turnOrder,
@@ -590,7 +591,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 									+ guesserFaction.getName()
 									+ " team, it is "
 									+ game.getTurnOrder().getCurrentTurn()
-											.getName() + "team's turn.)");
+											.getName() + " team's turn.)");
 					if (DEBUG) {
 						session.sendMessage(event.getChannel(),
 								"However, I'll allow it for now...");

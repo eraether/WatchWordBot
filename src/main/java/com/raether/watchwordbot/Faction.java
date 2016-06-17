@@ -3,21 +3,16 @@ package com.raether.watchwordbot;
 import java.util.ArrayList;
 import java.util.List;
 
-class Faction {
+public class Faction {
 	private String factionName;
 	// unique set
-	private List<Player> players = new ArrayList<>();
+	private List<Player> players = new ArrayList<Player>();
 
-	Faction(String factionName) {
+	public Faction(String factionName) {
 		this.factionName = factionName;
 	}
 
-	@Override
-	public String toString() {
-		return (new StringBuilder().append(this.factionName)).toString();
-	}
-
-	void shiftMembership() {
+	public void shiftMembership() {
 		if (this.isEmpty()) {
 			return;
 		}
@@ -25,11 +20,11 @@ class Faction {
 		players.add(0, lastPlayer);
 	}
 
-	private boolean isEmpty() {
+	public boolean isEmpty() {
 		return players.isEmpty();
 	}
 
-	Integer getPlayerIndex(Player firstPlayer) {
+	public Integer getPlayerIndex(Player firstPlayer) {
 		for (int x = 0; x < players.size(); x++) {
 			if (players.get(x) == firstPlayer) {
 				return x;
@@ -43,15 +38,15 @@ class Faction {
 		this.players = players;
 	}
 
-	String getName() {
+	public String getName() {
 		return this.factionName;
 	}
 
-	boolean hasLeader() {
+	public boolean hasLeader() {
 		return getLeader() != null;
 	}
 
-	Player getLeader() {
+	public Player getLeader() {
 		if (players.isEmpty()) {
 			return null;
 		}
@@ -59,11 +54,11 @@ class Faction {
 		return players.get(0);
 	}
 
-	List<Player> getAllPlayers() {
+	public List<Player> getAllPlayers() {
 		return this.players;
 	}
 
-	boolean isLeader(Player player) {
+	public boolean isLeader(Player player) {
 		return hasLeader() && (player == getLeader());
 	}
 
@@ -74,7 +69,7 @@ class Faction {
 		return followers;
 	}
 
-	boolean addPlayer(Player player) {
+	public boolean addPlayer(Player player) {
 		if (players.contains(player)) {
 			return false;
 		}
@@ -82,7 +77,7 @@ class Faction {
 		return true;
 	}
 
-	boolean removePlayer(Player player) {
+	public boolean removePlayer(Player player) {
 		return players.remove(player);
 	}
 }

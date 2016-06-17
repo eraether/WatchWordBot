@@ -32,7 +32,7 @@ task runner(type:JavaExec) {
 		if(project.hasProperty("apiKey")){
 			return [getProperty("apiKey")];
 		}
-		return [];
+		return ['xoxb-51802330053-mwwZX5Jf0D3tPPIec5Jg55oI'];
 	}();
 }
 
