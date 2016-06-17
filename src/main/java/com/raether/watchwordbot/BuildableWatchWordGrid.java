@@ -54,7 +54,7 @@ public class BuildableWatchWordGrid {
 		return this;
 	}
 
-	WatchWordGrid build() {
+	public WatchWordGrid build() {
 		List<WordTile> wordTiles = new ArrayList<>();
 
 		for (int x = 0; x < words.size(); x++) {
