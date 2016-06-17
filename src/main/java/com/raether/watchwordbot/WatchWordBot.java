@@ -593,7 +593,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 									+ guesserFaction.getName()
 									+ " team, it is "
 									+ game.getTurnOrder().getCurrentTurn()
-											.getName() + "team's turn.)");
+											.getName() + " team's turn.)");
 					if (DEBUG) {
 						session.sendMessage(event.getChannel(),
 								"However, I'll allow it for now...");
