@@ -23,12 +23,20 @@ dependencies{
 	compile group: 'commons-io', name: 'commons-io', version: '2.5'
 	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
 	compile group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
-	
-	
 }
 
 task execute(type:JavaExec) {
 	main = 'com.raether.watchwordbot.Runner'
 	classpath = sourceSets.main.runtimeClasspath
 	args = [getProperty("apiKey")]
- }
+}
+
+jar {
+	// Keep jar clean:
+	exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.MF'
+
+	manifest { attributes 'Main-Class': 'com.raether.watchwordbot.Runner' }
+	from {
+		configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+}
