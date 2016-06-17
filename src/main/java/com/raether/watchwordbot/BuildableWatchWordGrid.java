@@ -25,11 +25,11 @@ public class BuildableWatchWordGrid {
 		return this;
 	}
 
-	public void randomlyAssign(Faction faction, int count,
-			Random rand) {
+	public void randomlyAssign(Faction faction, int count, Random rand) {
 		List<Integer> unassignedTileIndices = getUnassignedTileIndices();
 		if (unassignedTileIndices.size() < count) {
 			fillRemainder(faction);
+			return;
 		}
 
 		for (int i = 0; i < count; i++) {
