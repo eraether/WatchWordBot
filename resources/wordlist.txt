@@ -220,7 +220,6 @@ bedroom
 bee
 beef
 beer
-beginning
 behaviour
 belief
 bell
@@ -748,7 +747,6 @@ denial
 density
 dentist
 departure
-dependence
 deposit
 deposit
 deposit
@@ -968,9 +966,6 @@ expertise
 explosion
 exposure
 expression
-extension
-extension
-extension
 extent
 extreme
 eye
@@ -1204,7 +1199,6 @@ graduate
 grain
 grain
 grammar
-grant
 graph
 graphics
 grass
@@ -1337,8 +1331,6 @@ house
 houseplant
 housewife
 housing
-human_body
-humanity
 humour
 hunter
 hunting
@@ -1532,18 +1524,11 @@ lid
 lid
 lie
 life
-life_style
-lift
-lift
-lift
 light
 light
 light
 lily
 limb
-limit
-limit
-limitation
 line
 line
 line
@@ -1592,7 +1577,6 @@ lump
 lunch
 lung
 machine
-machinery
 magazine
 magnitude
 maid
@@ -3161,7 +3145,6 @@ beat
 beat
 become
 beg
-begin
 behave
 behead
 belong
@@ -3315,7 +3298,6 @@ denounce
 deny
 deny
 depart
-depend
 deprive
 describe
 desert
