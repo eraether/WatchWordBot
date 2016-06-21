@@ -1524,18 +1524,11 @@ lid
 lid
 lie
 life
-life_style
-lift
-lift
-lift
 light
 light
 light
 lily
 limb
-limit
-limit
-limitation
 line
 line
 line
@@ -1584,7 +1577,6 @@ lump
 lunch
 lung
 machine
-machinery
 magazine
 magnitude
 maid
