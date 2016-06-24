@@ -9,7 +9,6 @@ abuse
 abuse
 academy
 accent
-acceptance
 access
 access
 accident
@@ -548,16 +547,12 @@ command
 comment
 comment
 commerce
-commission
-commission
-commitment
 committee
 communist
 community
 compact
 company
 company
-comparison
 competence
 compliance
 composer
@@ -3138,8 +3133,6 @@ arrange
 arrest
 articulate
 ascertain
-ask
-ask
 assume
 attach
 attack
