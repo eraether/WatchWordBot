@@ -198,6 +198,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			session.sendMessage(event.getChannel(),
 					printFactions(getWatchWordLobby()));
+		} else if (command.equals("board") || command.equals("grid")) {
+			if (currentGameState == GameState.IDLE) {
+				printIncorrectGameState(event.getChannel(), new GameState[] {
+					GameState.LOBBY, GameState.GAME});
+				return;
+			}
+			session.sendMessage(event.getChannel(), printCardGrid());
 		} else if (command.equals("join")) {
 			if (currentGameState == GameState.IDLE) {
 				printIncorrectGameState(event.getChannel(), new GameState[] {
