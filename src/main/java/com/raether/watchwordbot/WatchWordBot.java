@@ -198,10 +198,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			session.sendMessage(event.getChannel(),
 					printFactions(getWatchWordLobby()));
-		} else if (command.equals("board") || command.equals("grid")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-					GameState.LOBBY, GameState.GAME});
+		} else if (command.equals("grid")) {
+			if (currentGameState != GameState.GAME) {
+				printIncorrectGameState(event.getChannel(), new GameState[] {GameState.GAME});
 				return;
 			}
 			session.sendMessage(event.getChannel(), printCardGrid());
@@ -813,6 +812,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			out += line;
 		}
 		out += "```";
+
+		// Print unrevealed tiles for each player faction
+		List<Faction> playerFactions = game.getTurnOrder().getAllFactions();
+		for (Faction playerFaction : playerFactions) {
+			out += "\n" + playerFaction.getName() + " has " + game.getGrid().getUnrevealedTilesForFaction(playerFaction).size() + " cards left to guess.";
+		}
+
 		return out;
 	}
 
