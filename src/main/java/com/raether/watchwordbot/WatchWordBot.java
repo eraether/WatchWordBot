@@ -225,7 +225,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			session.sendMessage(event.getChannel(),
 					printFactions(getWatchWordLobby()));
-		} else if (command.equals("grid")) {
+		} else if (command.matches("g+r+i+d+")) {
 			if (currentGameState != GameState.GAME) {
 				printIncorrectGameState(event.getChannel(),
 						new GameState[] { GameState.GAME });
@@ -844,12 +844,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		// Print unrevealed tiles for each player faction
 		List<Faction> playerFactions = game.getTurnOrder().getAllFactions();
 		for (Faction playerFaction : playerFactions) {
-			out += "\n"
-					+ playerFaction.getName()
-					+ " has "
-					+ game.getGrid()
-							.getUnrevealedTilesForFaction(playerFaction).size()
-					+ " cards left to guess.";
+			int unrevealedTiles = game.getGrid()
+					.getUnrevealedTilesForFaction(playerFaction).size();
+			String conditionallyPluralizedCard = unrevealedTiles > 1 ? "cards"
+					: "card";
+			out += "\n" + playerFaction.getName() + " has " + unrevealedTiles
+					+ " " + conditionallyPluralizedCard + " left to guess.";
 		}
 
 		return out;
