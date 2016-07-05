@@ -166,7 +166,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			boolean validStart = false;
 			Set<SlackUser> users = new HashSet<SlackUser>();
-			SlackUser lobbyStarter = findUserById(event.getSender().getId(),
+			SlackUser lobbyStarter = findUserByUsername(event.getSender().getId(),
 					watchWordLobby.getChannel().getMembers());
 			if (lobbyStarter != null) {
 				users.add(lobbyStarter);
