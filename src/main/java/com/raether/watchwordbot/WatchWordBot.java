@@ -166,7 +166,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			boolean validStart = false;
 			Set<SlackUser> users = new HashSet<SlackUser>();
-			users.add(event.getSender());
+			SlackUser lobbyStarter = findUserById(event.getSender().getId(),
+					watchWordLobby.getChannel().getMembers());
+			if (lobbyStarter != null) {
+				users.add(lobbyStarter);
+			}
+
 			if (args.isEmpty() || args.peek().equals("opt-out")) {
 				validStart = true;
 				for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
@@ -898,6 +903,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private static String getUsernameString(SlackUser user) {
 		return getUsernameString(user, false);
+	}
+
+	private SlackUser findUserById(String id, Collection<SlackUser> members) {
+		for (SlackUser user : members) {
+			if (user.getId().equals(id)) {
+				return user;
+			}
+		}
+		return null;
 	}
 
 	// first exact match, then lowercase match, then partial match, then
