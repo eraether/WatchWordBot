@@ -1,7 +1,6 @@
 package com.raether.watchwordbot;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -16,7 +15,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.IOUtils;
@@ -95,6 +93,20 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				TimeUnit.MILLISECONDS);
 	}
 
+	private void reconnect(SlackSession session) {
+		try {
+			session.disconnect();
+		} catch (Exception e) {
+
+		} finally {
+			try {
+				session.connect();
+			} catch (Exception e) {
+
+			}
+		}
+	}
+
 	private void updateSession(SlackSession session) {
 		this.slackSession = session;
 	}
@@ -139,7 +151,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						"Cannot start a game in a private message!");
 				return;
 			}
-
+			session.sendMessage(event.getChannel(),
+					"Reconnecting to slack service to refresh users, one sec...");
+			reconnect(getSession());
 			Faction redFaction = new Faction("Red");
 			Faction blueFaction = new Faction("Blue");
 			List<Faction> playerFactions = new ArrayList<Faction>();
@@ -158,7 +172,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
 					SlackPresence presence = session.getPresence(user);
 					if (user.isBot() == false
-							&& (presence == SlackPresence.ACTIVE || presence == SlackPresence.AWAY)) {
+							&& (presence == SlackPresence.ACTIVE)) {
 						users.add(user);
 					}
 				}
