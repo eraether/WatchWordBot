@@ -54,14 +54,22 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	public void loadWordList() throws IOException {
-		InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("wordlist.txt");
+		InputStream in = Thread.currentThread().getContextClassLoader()
+				.getResourceAsStream("wordlist.txt");
 		System.out.println(in);
 		List<String> words = IOUtils.readLines(in, "UTF-8");
 		System.out.println(words.size());
 		Set<String> uniqueWords = new TreeSet<String>();
 		uniqueWords.addAll(words);
 		wordList = new ArrayList<String>();
-		wordList.addAll(uniqueWords);
+		for (String uniqueWord : uniqueWords) {
+			String formattedUniqueWord = uniqueWord.replaceAll("[\\s]+", "_");
+			if (!formattedUniqueWord.equals(uniqueWord)) {
+				System.out.println("Transformed " + uniqueWord + "=>"
+						+ formattedUniqueWord);
+			}
+			wordList.add(formattedUniqueWord);
+		}
 	}
 
 	public void connect() throws IOException {
@@ -82,9 +90,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				onHeartBeat();
 			}
 		};
-		final ScheduledFuture<?> heartBeatHandle = scheduler
-				.scheduleAtFixedRate(heartBeater, 500, 500,
-						TimeUnit.MILLISECONDS);
+		// final ScheduledFuture<?> heartBeatHandle =
+		scheduler.scheduleAtFixedRate(heartBeater, 500, 500,
+				TimeUnit.MILLISECONDS);
 	}
 
 	private void updateSession(SlackSession session) {
@@ -200,7 +208,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					printFactions(getWatchWordLobby()));
 		} else if (command.equals("grid")) {
 			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {GameState.GAME});
+				printIncorrectGameState(event.getChannel(),
+						new GameState[] { GameState.GAME });
 				return;
 			}
 			session.sendMessage(event.getChannel(), printCardGrid());
@@ -816,7 +825,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		// Print unrevealed tiles for each player faction
 		List<Faction> playerFactions = game.getTurnOrder().getAllFactions();
 		for (Faction playerFaction : playerFactions) {
-			out += "\n" + playerFaction.getName() + " has " + game.getGrid().getUnrevealedTilesForFaction(playerFaction).size() + " cards left to guess.";
+			out += "\n"
+					+ playerFaction.getName()
+					+ " has "
+					+ game.getGrid()
+							.getUnrevealedTilesForFaction(playerFaction).size()
+					+ " cards left to guess.";
 		}
 
 		return out;
