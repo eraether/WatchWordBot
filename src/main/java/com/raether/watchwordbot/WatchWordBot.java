@@ -89,7 +89,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		};
 		// final ScheduledFuture<?> heartBeatHandle =
-		scheduler.scheduleAtFixedRate(heartBeater, 500, 500,
+		scheduler.scheduleAtFixedRate(heartBeater, 1000, 1000,
 				TimeUnit.MILLISECONDS);
 	}
 
