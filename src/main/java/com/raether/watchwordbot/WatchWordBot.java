@@ -172,7 +172,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				users.add(lobbyStarter);
 			}
 
-			if (args.isEmpty() || args.peek().equals("opt-out")) {
+			if (args.peek().equals("opt-out")) {
 				validStart = true;
 				for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
 					SlackPresence presence = session.getPresence(user);
@@ -181,10 +181,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						users.add(user);
 					}
 				}
-			} else if (args.peek().equals("opt-in")) {
+			} else if (args.isEmpty() || args.peek().equals("opt-in")) {
 				validStart = true;
 			} else {
-				printUsage(event.getChannel(), "lobby [(opt-out), opt-in]");
+				printUsage(event.getChannel(), "lobby [(opt-in), opt-out]");
 				return;
 			}
 			if (validStart) {
