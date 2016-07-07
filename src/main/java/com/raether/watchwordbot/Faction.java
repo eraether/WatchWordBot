@@ -7,9 +7,21 @@ public class Faction {
 	private String factionName;
 	// unique set
 	private List<Player> players = new ArrayList<Player>();
+	private CompetitiveTimer timer;
 
 	public Faction(String factionName) {
+		this(factionName, null);
+	}
+
+	public Faction(String factionName, CompetitiveTimer timer) {
+		this(factionName, timer, new ArrayList<Player>());
+	}
+
+	public Faction(String factionName, CompetitiveTimer timer,
+			List<Player> players) {
 		this.factionName = factionName;
+		this.timer = timer;
+		this.players = players;
 	}
 
 	public void shiftMembership() {
@@ -31,11 +43,6 @@ public class Faction {
 			}
 		}
 		return null;
-	}
-
-	public Faction(String factionName, List<Player> players) {
-		this(factionName);
-		this.players = players;
 	}
 
 	public String getName() {
@@ -79,5 +86,17 @@ public class Faction {
 
 	public boolean removePlayer(Player player) {
 		return players.remove(player);
+	}
+
+	public CompetitiveTimer getTimer() {
+		return this.timer;
+	}
+
+	public void setCompetitiveTimer(CompetitiveTimer competitiveTimer) {
+		this.timer = competitiveTimer;
+	}
+
+	public boolean hasTimer() {
+		return getTimer() != null;
 	}
 }

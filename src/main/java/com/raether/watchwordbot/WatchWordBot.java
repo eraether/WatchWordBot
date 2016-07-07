@@ -85,7 +85,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		final Runnable heartBeater = new Runnable() {
 			@Override
 			public void run() {
-				onHeartBeat();
+				onHeartBeat(getSession());
 			}
 		};
 		// final ScheduledFuture<?> heartBeatHandle =
@@ -154,8 +154,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(event.getChannel(),
 					"Reconnecting to slack service to refresh users, one sec...");
 			reconnect(getSession());
-			Faction redFaction = new Faction("Red");
-			Faction blueFaction = new Faction("Blue");
+
+			Faction redFaction = new Faction("Red", null);
+			Faction blueFaction = new Faction("Blue", null);
 			List<Faction> playerFactions = new ArrayList<Faction>();
 			playerFactions.add(redFaction);
 			playerFactions.add(blueFaction);
@@ -166,8 +167,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			boolean validStart = false;
 			Set<SlackUser> users = new HashSet<SlackUser>();
-			SlackUser lobbyStarter = findUserByUsername(event.getSender().getId(),
-					watchWordLobby.getChannel().getMembers());
+			SlackUser lobbyStarter = findUserByUsername(event.getSender()
+					.getId(), watchWordLobby.getChannel().getMembers());
 			if (lobbyStarter != null) {
 				users.add(lobbyStarter);
 			}
@@ -352,6 +353,30 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			session.sendMessage(getCurrentChannel(),
 					printFactions(getWatchWordLobby()));
+		} else if (command.equals("time")) {
+			if (currentGameState != GameState.GAME) {
+				printIncorrectGameState(event.getChannel(),
+						new GameState[] { GameState.GAME });
+				return;
+			}
+			if (game.getActingFaction() == null) {
+				session.sendMessage(event.getChannel(),
+						"Game is currently in an invalid state, there is currently no acting faction!");
+				return;
+			}
+			CompetitiveTime time = game.getRemainingTime();
+			if (time == null) {
+				session.sendMessage(event.getChannel(),
+						"There is currently no timer enabled for the "
+								+ game.getActingFaction().getName() + " team.");
+				return;
+			}
+			session.sendMessage(event.getChannel(),
+					"Remaining time for the "
+							+ game.getActingFaction().getName() + " team: "
+							+ time.getOvertime(TimeUnit.SECONDS) + " secs. | "
+							+ time.getTime(TimeUnit.SECONDS) + " secs.");
+
 		} else if (command.equals("kick") || command.equals("remove")) {
 			if (currentGameState == GameState.IDLE) {
 				printIncorrectGameState(event.getChannel(), new GameState[] {
@@ -402,8 +427,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			TurnOrder turnOrder = this.watchWordLobby.getTurnOrder();
 			turnOrder.shuffle(random1);
-			Faction neutralFaction = new Faction("Neutral");
-			Faction assassinFaction = new Faction("Assassin");
+			for (Faction faction : turnOrder.getAllFactions()) {
+
+				long overtimeDuration = 10;
+				TimeUnit overtimeTimeUnit = TimeUnit.MINUTES;
+				faction.setCompetitiveTimer(new CompetitiveTimer(
+						overtimeDuration, overtimeTimeUnit));
+			}
+
+			Faction neutralFaction = new Faction("Neutral", null);
+			Faction assassinFaction = new Faction("Assassin", null);
 
 			int firstFactionCards = 9;
 			int secondFactionCards = 8;
@@ -443,7 +476,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					session.sendMessageToUser(user, printCardGrid(true), null);
 				}
 			}
-
+			waitForClue();
 		} else if (command.equals("clue")) {
 			if (currentGameState != GameState.GAME) {
 				printIncorrectGameState(event.getChannel(), GameState.GAME);
@@ -525,6 +558,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(),
 					getUsernameString(event.getSender()) + " has given a clue.");
 			session.sendMessage(getCurrentChannel(), printGivenClue());
+			waitForGuess();
 		} else if (command.equals("end")) {
 			if (currentGameState != GameState.GAME) {
 				printIncorrectGameState(event.getChannel(), GameState.GAME);
@@ -577,6 +611,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(), printCardGrid());
 			session.sendMessage(getCurrentChannel(), printCurrentTurn());
 			session.sendMessage(getCurrentChannel(), printGivenClue());
+			waitForClue();
 		}
 
 		else if (command.equals("guess")) {
@@ -621,9 +656,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					session.sendMessage(
 							event.getChannel(),
 							getUsernameString(event.getSender())
-									+ ", it is not currently your turn to guess! (You are "
+									+ ", it is not currently your turn to guess! (You are on the "
 									+ guesserFaction.getName()
-									+ " team, it is "
+									+ " team, it is currently the "
 									+ game.getTurnOrder().getCurrentTurn()
 											.getName() + " team's turn.)");
 					if (DEBUG) {
@@ -709,18 +744,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 
 				if (victor != null) {
-					String victorString = "";
-					for (Player player : victor.getAllPlayers()) {
-						victorString += getUsernameString(getWatchWordLobby()
-								.getUser(player)) + "\n";
-					}
-					session.sendMessage(getCurrentChannel(), "Game over!  "
-							+ victor.getName()
-							+ " has won!  Congratulations to:\n" + victorString);
-				}
-
-				if (victor != null) {
-					finishGame();
+					finishGame(victor, session);
 					return;
 				}
 
@@ -728,6 +752,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					session.sendMessage(getCurrentChannel(),
 							"Out of guesses!  Changing turns.");
 					game.changeTurns();
+					waitForClue();
+				} else {
+					waitForGuess();
 				}
 
 				session.sendMessage(getCurrentChannel(), printCardGrid());
@@ -742,6 +769,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 			}
 		}
+	}
+
+	private void waitForClue() {
+		this.game.startCountingDown(5, TimeUnit.MINUTES);
+	}
+
+	private void waitForGuess() {
+		this.game.startCountingDown(3, TimeUnit.MINUTES);
+		// this.game.getTurnOrder().getCurrentTurn().getTimer().setRemainingTime(3,
+		// TimeUnit.MINUTES);
 	}
 
 	private String printAbbreviatedFaction(Faction faction) {
@@ -846,8 +883,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		for (Faction playerFaction : playerFactions) {
 			int unrevealedTiles = game.getGrid()
 					.getUnrevealedTilesForFaction(playerFaction).size();
-			String conditionallyPluralizedCard = unrevealedTiles > 1 ? "cards"
-					: "card";
+			String conditionallyPluralizedCard = unrevealedTiles == 1 ? "card"
+					: "cards";
 			out += "\n" + playerFaction.getName() + " has " + unrevealedTiles
 					+ " " + conditionallyPluralizedCard + " left to guess.";
 		}
@@ -859,7 +896,18 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return printCardGrid(false);
 	}
 
-	private void finishGame() {
+	private void finishGame(Faction victor, SlackSession session) {
+		if (victor != null) {
+			String victorString = "";
+			for (Player player : victor.getAllPlayers()) {
+				victorString += getUsernameString(getWatchWordLobby().getUser(
+						player))
+						+ "\n";
+			}
+			session.sendMessage(getCurrentChannel(),
+					"Game over!  " + victor.getName()
+							+ " has won!  Congratulations to:\n" + victorString);
+		}
 		this.currentGameState = GameState.LOBBY;
 		this.game = null;
 		getWatchWordLobby().getTurnOrder().shuffleFactionLeaders();
@@ -983,7 +1031,33 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return this.watchWordLobby.getChannel();
 	}
 
-	private void onHeartBeat() {
+	private void onHeartBeat(SlackSession session) {
+		if (this.game != null && game.getActingFaction() != null) {
+			CompetitiveTime time = game.getRemainingTime();
+			if (time == null) {
+				return;
+			}
+			long totalTime = time.getTotalTime(TimeUnit.SECONDS);
+			if (totalTime == 0) {
+				session.sendMessage(getCurrentChannel(),
+						"Out of time AND out of overtime!  Game over!");
+				session.sendMessage(getCurrentChannel(),
+						"(psssh...nothin personnel...kid...)");
+				finishGame(game.getTurnOrder().getNextTurn(), session);
+			} else if (totalTime % 60 == 0) {
+				session.sendMessage(getCurrentChannel(),
+						game.getActingFaction().getName() + " team, you have "
+								+ time.getOvertime(TimeUnit.MINUTES)
+								+ " min | " + time.getTime(TimeUnit.MINUTES)
+								+ " min remaining!");
+			} else if (totalTime < 60 && totalTime % 5 == 0) {
+				session.sendMessage(getCurrentChannel(), game
+						.getActingFaction().getName()
+						+ " team, time's running out!  "
+						+ totalTime
+						+ " secs. remaining!");
+			}
+		}
 	}
 }
 

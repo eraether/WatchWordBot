@@ -1,5 +1,7 @@
 package com.raether.watchwordbot;
 
+import java.util.concurrent.TimeUnit;
+
 public class WatchWordGame {
 	private WatchWordGrid grid;
 	private TurnOrder turnOrder;
@@ -7,6 +9,9 @@ public class WatchWordGame {
 	private Faction assassinFaction;
 	private WatchWordClue currentClue;
 	private int totalGuessesMadeThisTurn = 0;
+
+	Long lastCountdownStartTime = null;
+	Faction lastFactionToAct = null;
 
 	public WatchWordGame(WatchWordGrid grid, TurnOrder playerFactions,
 			Faction neutralFaction, Faction assassinFaction) {
@@ -71,5 +76,36 @@ public class WatchWordGame {
 		if (!wasClueGivenThisTurn())
 			return 0;
 		return getClue().getAmount() - totalGuessesMadeThisTurn;
+	}
+
+	public void startCountingDown(int time, TimeUnit unit) {
+		long leeway = TimeUnit.NANOSECONDS.convert(5, TimeUnit.SECONDS);
+
+		if (lastFactionToAct != null && lastCountdownStartTime != null) {
+			CompetitiveTimer timer = lastFactionToAct.getTimer();
+			if (timer != null) {
+				long diff = System.nanoTime() - lastCountdownStartTime - leeway;
+				timer.reduceTimeBy(diff, TimeUnit.NANOSECONDS);
+			}
+		}
+		lastFactionToAct = getTurnOrder().getCurrentTurn();
+		lastCountdownStartTime = System.nanoTime();
+		if (lastFactionToAct.hasTimer()) {
+			lastFactionToAct.getTimer().setRemainingTime(time, unit);
+		}
+	}
+
+	public CompetitiveTime getRemainingTime() {
+		if (lastFactionToAct != null && lastFactionToAct.hasTimer()
+				&& lastCountdownStartTime != null) {
+			long diff = System.nanoTime() - lastCountdownStartTime;
+			return lastFactionToAct.getTimer().getTimeAfter(diff,
+					TimeUnit.NANOSECONDS);
+		}
+		return null;
+	}
+
+	public Faction getActingFaction() {
+		return lastFactionToAct;
 	}
 }
