@@ -9,18 +9,26 @@ public abstract class Command {
 	private List<String> additionalAliases = new ArrayList<String>();
 	private String helpText = "";
 	private List<GameState> validGameStates = new ArrayList<GameState>();
+	private boolean hidden = false;
 
 	public Command(String primaryAlias, String helpText,
 			GameState... validGameStates) {
-		this(primaryAlias, new ArrayList<String>(), helpText, validGameStates);
+		this(primaryAlias, helpText, false, validGameStates);
+	}
+
+	public Command(String primaryAlias, String helpText, boolean hidden,
+			GameState... validGameStates) {
+		this(primaryAlias, new ArrayList<String>(), helpText, hidden,
+				validGameStates);
 	}
 
 	public Command(String primaryAlias, List<String> additionalAliases,
-			String helpText, GameState... validGameStates) {
+			String helpText, boolean hidden, GameState... validGameStates) {
 		this.primaryAlias = primaryAlias;
 		this.additionalAliases = additionalAliases;
 		this.helpText = helpText;
 		this.validGameStates = Arrays.asList(validGameStates);
+		this.hidden = hidden;
 	}
 
 	// execute your command!
@@ -60,6 +68,10 @@ public abstract class Command {
 
 	public String getHelpText() {
 		return this.helpText;
+	}
+
+	public boolean isHidden() {
+		return hidden;
 	}
 
 }

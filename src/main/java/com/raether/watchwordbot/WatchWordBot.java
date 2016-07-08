@@ -144,7 +144,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		for (Command command : commands) {
 			if (command.matches(commandText)) {
-				if (inInvalidGameState(event.getChannel(),
+				if (!isGameCurrentlyInValidGameState(event.getChannel(),
 						command.getValidGameStates())) {
 					return;
 				}
@@ -171,14 +171,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			@Override
 			public void run() {
 				cancelCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("sync", "synchronization test",
-				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				syncCommand(event, args, session);
 			}
 		});
 
@@ -245,8 +237,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		});
 
 		commands.add(new Command("kick", Arrays.asList("remove"),
-				"removes the specified player from the game.", GameState.LOBBY,
-				GameState.GAME) {
+				"removes the specified player from the game.", false,
+				GameState.LOBBY, GameState.GAME) {
 			@Override
 			public void run() {
 				kickCommand(event, args, session);
@@ -283,8 +275,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("help", "yes, this is help", GameState.IDLE,
-				GameState.LOBBY, GameState.GAME) {
+		commands.add(new Command("sync", "synchronization test", true,
+				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
+			@Override
+			public void run() {
+				syncCommand(event, args, session);
+			}
+		});
+
+		commands.add(new Command("help", "yes, this is help", true,
+				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
 			@Override
 			public void run() {
 				helpCommand(event, args, session);
@@ -300,13 +300,14 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		List<Command> filteredCommands = new ArrayList<Command>();
 		for (Command command : commands) {
-			if (command.getValidGameStates().contains(this.currentGameState)) {
+			if (command.getValidGameStates().contains(this.currentGameState)
+					&& !command.isHidden()) {
 				filteredCommands.add(command);
 			}
 		}
 
 		String totalHelpText = "Contextual Help\n";
-		for (Command command : commands) {
+		for (Command command : filteredCommands) {
 			String helpText = command.getPrimaryAlias();
 			if (command.hasAdditionalAliases()) {
 				helpText += " (" + command.getAdditionalAliases() + ")";
@@ -907,10 +908,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		waitForClue();
 	}
 
-	private boolean inInvalidGameState(SlackChannel channel,
+	private boolean isGameCurrentlyInValidGameState(SlackChannel channel,
 			List<GameState> validStates) {
-		GameState currentState = this.currentGameState;
 
+		GameState currentState = this.currentGameState;
 		if (validStates.contains(currentState)) {
 			return true;
 		}
