@@ -7,9 +7,11 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
@@ -141,8 +143,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		String command = args.pop().toLowerCase();
 
 		if (command.equals("lobby")) {
-			if (currentGameState != GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), GameState.IDLE);
+			if (inInvalidGameState(event.getChannel(), GameState.IDLE)) {
 				return;
 			}
 
@@ -172,8 +173,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			if (lobbyStarter != null) {
 				users.add(lobbyStarter);
 			}
-
-			if (args.peek().equals("opt-out")) {
+			if (args.isEmpty() || args.peek().equals("opt-in")) {
+				validStart = true;
+			} else if (args.peek().equals("opt-out")) {
 				validStart = true;
 				for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
 					SlackPresence presence = session.getPresence(user);
@@ -182,8 +184,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						users.add(user);
 					}
 				}
-			} else if (args.isEmpty() || args.peek().equals("opt-in")) {
-				validStart = true;
 			} else {
 				printUsage(event.getChannel(), "lobby [(opt-in), opt-out]");
 				return;
@@ -200,9 +200,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						printFactions(getWatchWordLobby()));
 			}
 		} else if (command.equals("cancel")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			session.sendMessage(
@@ -218,25 +217,25 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				e.printStackTrace();
 			}
 			session.sendMessage(event.getChannel(), "Done!");
+		} else if (command.equals("scale")) {
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY)) {
+				return;
+			}
 		} else if (command.equals("list")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			session.sendMessage(event.getChannel(),
 					printFactions(getWatchWordLobby()));
 		} else if (command.matches("g+r+i+d+")) {
-			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(),
-						new GameState[] { GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.GAME)) {
 				return;
 			}
 			session.sendMessage(event.getChannel(), printCardGrid());
 		} else if (command.equals("join")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			if (!getWatchWordLobby().hasUser(event.getSender())) {
@@ -253,9 +252,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 								+ ", you're already in the game!");
 			}
 		} else if (command.equals("swap")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
@@ -320,9 +318,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		else if (command.equals("add")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			if (args.isEmpty()) {
@@ -354,9 +351,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(),
 					printFactions(getWatchWordLobby()));
 		} else if (command.equals("time")) {
-			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(),
-						new GameState[] { GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.GAME)) {
 				return;
 			}
 			if (game.getActingFaction() == null) {
@@ -378,9 +373,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 							+ time.getTime(TimeUnit.SECONDS) + " secs.");
 
 		} else if (command.equals("kick") || command.equals("remove")) {
-			if (currentGameState == GameState.IDLE) {
-				printIncorrectGameState(event.getChannel(), new GameState[] {
-						GameState.LOBBY, GameState.GAME });
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY,
+					GameState.GAME)) {
 				return;
 			}
 			if (args.isEmpty()) {
@@ -409,8 +403,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		else if (command.equals("start")) {
-			if (currentGameState != GameState.LOBBY) {
-				printIncorrectGameState(event.getChannel(), GameState.LOBBY);
+			if (inInvalidGameState(event.getChannel(), GameState.LOBBY)) {
 				return;
 			}
 			currentGameState = GameState.GAME;
@@ -478,8 +471,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			waitForClue();
 		} else if (command.equals("clue")) {
-			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(), GameState.GAME);
+			if (inInvalidGameState(event.getChannel(), GameState.GAME)) {
 				return;
 			}
 
@@ -560,8 +552,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(), printGivenClue());
 			waitForGuess();
 		} else if (command.equals("end")) {
-			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(), GameState.GAME);
+			if (inInvalidGameState(event.getChannel(), GameState.GAME)) {
 				return;
 			}
 			if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
@@ -612,11 +603,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(), printCurrentTurn());
 			session.sendMessage(getCurrentChannel(), printGivenClue());
 			waitForClue();
-		}
-
-		else if (command.equals("guess")) {
-			if (currentGameState != GameState.GAME) {
-				printIncorrectGameState(event.getChannel(), GameState.GAME);
+		} else if (command.equals("guess")) {
+			if (inInvalidGameState(event.getChannel(), GameState.GAME)) {
 				return;
 			}
 			if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
@@ -769,6 +757,18 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 			}
 		}
+	}
+
+	private boolean inInvalidGameState(SlackChannel channel,
+			GameState... validStates) {
+		GameState currentState = this.currentGameState;
+
+		Collection<GameState> states = Arrays.asList(validStates);
+		if (states.contains(currentState)) {
+			return true;
+		}
+		printIncorrectGameState(channel, validStates);
+		return false;
 	}
 
 	private void waitForClue() {

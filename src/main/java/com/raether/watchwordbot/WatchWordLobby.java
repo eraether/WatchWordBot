@@ -13,6 +13,8 @@ public class WatchWordLobby {
 	private TurnOrder turnOrder;
 	private BidiMap<SlackUser, Player> playerMapping = new DualHashBidiMap<SlackUser, Player>();
 
+	private double timerMultiplier = 1;
+
 	public WatchWordLobby(SlackChannel channel, TurnOrder order) {
 		this.channel = channel;
 		this.turnOrder = order;
@@ -55,5 +57,13 @@ public class WatchWordLobby {
 
 	public TurnOrder getTurnOrder() {
 		return this.turnOrder;
+	}
+
+	public void setTimerMultiplier(double multiplier) {
+		this.timerMultiplier = multiplier;
+	}
+
+	public double getTimerMultiplier() {
+		return this.timerMultiplier;
 	}
 }
