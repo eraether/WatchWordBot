@@ -533,9 +533,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 		session.sendMessage(event.getChannel(),
 				"Remaining time for the " + game.getActingFaction().getName()
-						+ " team: " + time.getOvertime(TimeUnit.SECONDS)
-						+ " secs. | " + time.getTime(TimeUnit.SECONDS)
-						+ " secs.");
+						+ " team: " + time.getTime(TimeUnit.SECONDS)
+						+ " secs. (" + time.getOvertime(TimeUnit.SECONDS)
+						+ " secs. of overtime)");
 	}
 
 	private void kickCommand(SlackMessagePosted event, LinkedList<String> args,
@@ -1190,9 +1190,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			} else if (totalTime % 60 == 0) {
 				session.sendMessage(getCurrentChannel(),
 						game.getActingFaction().getName() + " team, you have "
-								+ time.getOvertime(TimeUnit.MINUTES)
-								+ " min | " + time.getTime(TimeUnit.MINUTES)
-								+ " min remaining!");
+								+ time.getTime(TimeUnit.MINUTES)
+								+ " min remaining (" + time.getOvertime(TimeUnit.MINUTES)
+								+ " min overtime)");
 			} else if (totalTime < 60 && totalTime % 5 == 0) {
 				session.sendMessage(getCurrentChannel(), game
 						.getActingFaction().getName()
