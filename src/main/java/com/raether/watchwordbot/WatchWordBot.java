@@ -267,8 +267,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("end", "end the guessing phase",
-				GameState.GAME) {
+		commands.add(new Command("end", Arrays.asList("pass"),
+				"end the guessing phase", false, GameState.GAME) {
 			@Override
 			public void run() {
 				endCommand(event, args, session);
@@ -1188,11 +1188,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						"(psssh...nothin personnel...kid...)");
 				finishGame(game.getTurnOrder().getNextTurn(), session);
 			} else if (totalTime % 60 == 0) {
-				session.sendMessage(getCurrentChannel(),
-						game.getActingFaction().getName() + " team, you have "
-								+ time.getTime(TimeUnit.MINUTES)
-								+ " min remaining (" + time.getOvertime(TimeUnit.MINUTES)
-								+ " min overtime)");
+				session.sendMessage(getCurrentChannel(), game
+						.getActingFaction().getName()
+						+ " team, you have "
+						+ time.getTime(TimeUnit.MINUTES)
+						+ " min remaining ("
+						+ time.getOvertime(TimeUnit.MINUTES) + " min overtime)");
 			} else if (totalTime < 60 && totalTime % 5 == 0) {
 				session.sendMessage(getCurrentChannel(), game
 						.getActingFaction().getName()
