@@ -1241,7 +1241,6 @@ hall
 hall
 hall
 hall
-hallway
 halt
 ham
 hammer
@@ -3056,8 +3055,6 @@ woman
 wonder
 wood
 wool
-word
-word
 wording
 work
 work
@@ -3091,7 +3088,6 @@ absorb
 accept
 accompany
 activate
-add
 adjust
 admire
 admit
@@ -3756,7 +3752,6 @@ relate
 relax
 release
 relieve
-relinquish
 rely
 remain
 remember
