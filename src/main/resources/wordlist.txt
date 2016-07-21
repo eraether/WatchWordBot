@@ -244,7 +244,6 @@ blood
 bloodshed
 blow
 blue
-blue_jean
 board
 boat
 body
@@ -1211,7 +1210,6 @@ houseplant
 housewife
 housing
 hover
-human_body
 humanity
 humour
 hunter
@@ -1419,7 +1417,6 @@ lick
 lid
 lie
 life
-life_style
 lift
 light
 like
@@ -2096,7 +2093,6 @@ rider
 ridge
 rifle
 right
-right_wing
 ring
 riot
 rise
@@ -2522,8 +2518,6 @@ test
 testify
 text
 texture
-thank
-thanks
 theatre
 theft
 theme
@@ -2624,7 +2618,6 @@ trunk
 trust
 trustee
 truth
-try
 tube
 tumble
 tumour
@@ -2775,10 +2768,7 @@ woman
 wonder
 wood
 wool
-word
-wording
 work
-work_out
 worker
 workshop
 world
