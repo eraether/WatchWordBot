@@ -29,4 +29,8 @@ public class PotentialGuessRow {
 	public double getWeightedCertainty() {
 		return this.weightedCertainty;
 	}
+
+	public void setWeightedCertainty(double weightedCertainty) {
+		this.weightedCertainty = weightedCertainty;
+	}
 }

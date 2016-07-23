@@ -356,6 +356,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 			} catch (Exception e) {
 				printUsage(event.getChannel(), "bot [# of desired bots]");
+				return;
 			}
 		}
 		boolean addedBots = false;
@@ -387,6 +388,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (addedBots) {
 			session.sendMessage(getCurrentChannel(),
 					printFactions(getWatchWordLobby()));
+			if (!isAIThreadRunning()) {
+				handleAIGuesses();
+			}
 		}
 	}
 
@@ -939,6 +943,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		session.sendMessage(getCurrentChannel(),
 				getUsernameString(event.getSender()) + " has given a clue.");
 		session.sendMessage(getCurrentChannel(), printGivenClue());
+		session.sendMessage(getCurrentChannel(), printCardGrid());
 		waitForGuess();
 	}
 
@@ -1034,8 +1039,20 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		handleAIGuesses();
 	}
 
-	private void stopAllAIThreads() {
+	private boolean isAIThreadRunning() {
+		return !this.aiThreads.isEmpty();
+	}
 
+	private void stopAllAIThreads() {
+		for (Thread t : this.aiThreads) {
+			try {
+				t.interrupt();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			;
+		}
+		this.aiThreads.clear();
 	}
 
 	private void queueAIThread(Thread t) {
@@ -1086,9 +1103,22 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					endTurn(getSession(), getCurrentChannel(), aiSlackUser);
 				} else if (thoughtProcess.getDesiredAction() == DesiredBotAction.GUESS) {
 
+					List<WordTile> tiles = game.getGrid().getTilesForWord(
+							thoughtProcess.getBestGuess().getWord());
+
+					// makes using bots a bit more fun, as they no longer guess
+					// the assassin with as high of a probability. Eventually
+					// this can be removed once bots are a bit better
+					for (WordTile tile : tiles) {
+						if (tile.getFaction() == game.getAssassinFaction()) {
+							PotentialGuess potentialGuess = thoughtProcess
+									.getBestGuess();
+							potentialGuess.rethinkGuess(2.0, 0.5);
+						}
+					}
+
 					List<PotentialGuess> allPotentialGuesses = thoughtProcess
 							.getSortedGuessList();
-
 					int startingIndex = Math.max(0,
 							allPotentialGuesses.size() - 3);
 					int endingIndex = allPotentialGuesses.size();
@@ -1336,15 +1366,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void partialGameReset() {
 		this.currentGameState = GameState.LOBBY;
+		stopAllAIThreads();
 		this.game = null;
-		for (Thread t : aiThreads) {
-			try {
-				t.interrupt();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-		aiThreads.clear();
 	}
 
 	private void resetGame() {

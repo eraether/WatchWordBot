@@ -42,4 +42,18 @@ public class PotentialGuess {
 		}
 		return totalWeight;
 	}
+
+	public void rethinkGuess(double positiveExponentScale,
+			double negativeExponentScale) {
+		for (PotentialGuessRow positiveGuessRow : getPositiveGuessResults()) {
+			positiveGuessRow.setWeightedCertainty(Math.pow(
+					positiveGuessRow.getWeightedCertainty(),
+					positiveExponentScale));
+		}
+		for (PotentialGuessRow negativeGuessRow : getNegativeGuessResults()) {
+			negativeGuessRow.setWeightedCertainty(Math.pow(
+					negativeGuessRow.getWeightedCertainty(),
+					negativeExponentScale));
+		}
+	}
 }

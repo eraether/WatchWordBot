@@ -72,17 +72,17 @@ public class AIPlayer {
 		int danglingNegativeGuessCount = 0;
 		for (WatchWordClue clue : currentFactionClues) {
 			positiveClues.add(clue.getWord());
-			danglingPositiveGuessCount += clue.getAmount();
+			danglingPositiveGuessCount += clue.getAmount() - 1;
 		}
 		for (WatchWordClue clue : otherFactionClues) {
 			negativeClues.add(clue.getWord());
-			danglingNegativeGuessCount += clue.getAmount();
+			danglingNegativeGuessCount += clue.getAmount() - 1;
 		}
 
 		Collections.reverse(positiveClues);
 		Collections.reverse(negativeClues);
 
-		if (danglingPositiveGuessCount == 0) {
+		if (danglingPositiveGuessCount <= 0) {
 			return new BotThoughtProcess(DesiredBotAction.END_TURN);
 		}
 
