@@ -302,13 +302,14 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("win", "win", true, GameState.GAME) {
-			@Override
-			public void run() {
-				winCommand(event, args, session);
-			}
-
-		});
+		if (DEBUG) {
+			commands.add(new Command("win", "win", true, GameState.GAME) {
+				@Override
+				public void run() {
+					winCommand(event, args, session);
+				}
+			});
+		}
 
 		commands.add(new Command("end", Arrays.asList("pass"),
 				"end the guessing phase", false, GameState.GAME) {
@@ -1321,7 +1322,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		try {
 			session = getSessionFactory().get().openSession();
 			session.beginTransaction();
-			System.out.println("Here I go updating ratings again...");
 			RatingHelper.updatePlayerRatings(victors, losers,
 					getWatchWordLobby(), session);
 			session.getTransaction().commit();
