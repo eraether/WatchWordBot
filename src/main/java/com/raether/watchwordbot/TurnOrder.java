@@ -144,6 +144,16 @@ public class TurnOrder {
 	}
 
 	public Faction getFactionAfter(Faction faction) {
-		return getFactionAtTurn(getTurnForFaction(faction)+1);
+		return getFactionAtTurn(getTurnForFaction(faction) + 1);
+	}
+
+	public List<Faction> getAllTurnsExceptCurrent() {
+		List<Faction> allFactionsExceptCurrent = new ArrayList<Faction>();
+		for (Faction faction : this.getAllFactions()) {
+			if (faction != this.getCurrentTurn()) {
+				allFactionsExceptCurrent.add(faction);
+			}
+		}
+		return allFactionsExceptCurrent;
 	}
 }

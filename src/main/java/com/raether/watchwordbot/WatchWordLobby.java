@@ -29,10 +29,13 @@ public class WatchWordLobby {
 	}
 
 	public boolean addUser(SlackUser user) {
+		return addUser(user, new Player());
+	}
+
+	public boolean addUser(SlackUser user, Player player) {
 		if (hasUser(user)) {
 			return false;
 		}
-		Player player = new Player();
 		playerMapping.put(user, player);
 		turnOrder.getLeastFullFaction().addPlayer(player);
 		return true;
@@ -65,5 +68,17 @@ public class WatchWordLobby {
 
 	public double getTimerMultiplier() {
 		return this.timerMultiplier;
+	}
+
+	public int getAIPlayerCount() {
+		int aiPlayerCount = 0;
+		for (Faction faction : turnOrder.getAllFactions()) {
+			for (Player player : faction.getAllPlayers()) {
+				if (player.isAIControlled()) {
+					aiPlayerCount += 1;
+				}
+			}
+		}
+		return aiPlayerCount;
 	}
 }

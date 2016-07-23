@@ -31,10 +31,28 @@ public class WatchWordGrid {
 		return this.height;
 	}
 
+	private List<WordTile> getTilesBasedOnRevealedStatus(boolean revealed) {
+		List<WordTile> revealedStatusTiles = new ArrayList<WordTile>();
+		for (WordTile tile : words) {
+			if (tile.isRevealed() == revealed) {
+				revealedStatusTiles.add(tile);
+			}
+		}
+		return revealedStatusTiles;
+	}
+
+	public List<WordTile> getRevealedTiles() {
+		return getTilesBasedOnRevealedStatus(true);
+	}
+
 	public List<WordTile> getRevealedTilesForFaction(Faction faction) {
 		List<WordTile> tiles = getTilesForFaction(faction);
 		tiles.removeAll(getUnrevealedTilesForFaction(faction));
 		return tiles;
+	}
+
+	public List<WordTile> getUnrevealedTiles() {
+		return getTilesBasedOnRevealedStatus(false);
 	}
 
 	public List<WordTile> getUnrevealedTilesForFaction(Faction faction) {
@@ -62,11 +80,10 @@ public class WatchWordGrid {
 		List<WordTile> exactMatchingTiles = new ArrayList<WordTile>();
 		List<WordTile> partialMatchingTiles = new ArrayList<WordTile>();
 		for (WordTile tile : this.words) {
-			if(tile.isRevealed())
-			{
+			if (tile.isRevealed()) {
 				continue;
 			}
-			
+
 			if (tile.getWord().equals(wordBeingGuessed)) {
 				exactMatchingTiles.add(tile);
 			}
@@ -86,7 +103,7 @@ public class WatchWordGrid {
 
 	public List<String> getAllWords() {
 		List<String> words = new ArrayList<String>();
-		for(WordTile tile : this.words){
+		for (WordTile tile : this.words) {
 			words.add(tile.getWord());
 		}
 		return words;
