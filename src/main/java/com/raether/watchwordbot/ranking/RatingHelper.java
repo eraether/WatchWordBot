@@ -26,8 +26,8 @@ public class RatingHelper {
 		GameInfo gameInfo = GameInfo.getDefaultGameInfo();
 		Collection<ITeam> teams = new ArrayList<ITeam>();
 		List<Integer> rankings = new ArrayList<Integer>();
-		final int WINNER = 1;
-		final int LOSER = 0;
+		final int WINNER = 1;//lower = better
+		final int LOSER = 2;
 
 		for (Faction victor : victors) {
 			teams.add(buildITeam(victor, gameInfo, lobby, session));

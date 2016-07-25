@@ -27,19 +27,19 @@ dependencies{
 	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
 	compile group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
 
-	//wordnet
+	//wordnet (OPTIONAL)
 	compile group: 'de.sciss', name: 'ws4j', version: '0.1.0'
 	//TO USE WORDNET (for the AI), please download wnjpn.db and add it to src/main/resources (http://nlpwww.nict.go.jp/wn-ja/data/1.1/wnjpn.db.gz)
-	
 
-	//database
+
+	//database (OPTIONAL)
 	compile group: 'org.postgresql', name: 'postgresql', version: '9.4.1209'
 	compile group: 'org.hibernate', name: 'hibernate-core', version: '5.2.1.Final'
 
-	//trueskill algorithm
+	//trueskill algorithm (OPTIONAL)
 	compile files('libs/jskills-0.9.1-SNAPSHOT.jar')//BUILT FROM: https://github.com/nsp/JSkills
 	compile group: 'org.ejml', name: 'simple', version:'0.28'
-	
+
 	//testing
 	testCompile group: 'junit', name: 'junit', version: '4.12'
 }
@@ -57,6 +57,11 @@ task semanticTest(type:JavaExec){
 
 task runner(type:JavaExec) {
 	main = 'com.raether.watchwordbot.Runner'
+	systemProperty "POSTGRES_PORT_5432_TCP_ADDR", System.getProperty("POSTGRES_PORT_5432_TCP_ADDR")
+	systemProperty "POSTGRES_PORT_5432_TCP_PORT", System.getProperty("POSTGRES_PORT_5432_TCP_PORT")
+	systemProperty "POSTGRES_ENV_POSTGRES_USERNAME", System.getProperty("POSTGRES_ENV_POSTGRES_USERNAME")
+	systemProperty "POSTGRES_ENV_POSTGRES_PASSWORD", System.getProperty("POSTGRES_ENV_POSTGRES_PASSWORD")
+	systemProperty "DB_CREATION_STRATEGY", System.getProperty("DB_CREATION_STRATEGY") //create or update
 	classpath = sourceSets.main.runtimeClasspath
 	args = {
 		if(project.hasProperty("apiKey")){

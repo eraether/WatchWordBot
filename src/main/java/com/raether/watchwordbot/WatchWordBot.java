@@ -63,7 +63,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private Optional<SessionFactory> sessionFactory;
 
-	private final static boolean DEBUG = false;
+	private static Boolean DEBUG = Boolean.FALSE;
 
 	public WatchWordBot(String apiKey, Optional<SessionFactory> sessionFactory) {
 		setAPIKey(apiKey);
@@ -949,6 +949,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void startCommand(SlackMessagePosted event,
 			LinkedList<String> args, SlackSession session) {
+
+		if (args.size() == 1) {
+			if (args.pop().equalsIgnoreCase("debug")) {
+				DEBUG = Boolean.TRUE;
+			} else {
+				DEBUG = Boolean.FALSE;
+			}
+		}
+
 		currentGameState = GameState.GAME;
 		session.sendMessage(getCurrentChannel(), "Starting the game...");
 		long seed1 = System.nanoTime();
