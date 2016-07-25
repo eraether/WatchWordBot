@@ -12,9 +12,9 @@
 
 		<!-- Database connection settings -->
 		<property name="connection.driver_class">org.postgresql.Driver</property>
-		<property name="connection.url">jdbc:postgresql://localhost:5432/watchwords</property>
-		<property name="connection.username">postgres</property>
-		<property name="connection.password">hyperion</property>
+		<property name="connection.url">jdbc:postgresql://${POSTGRES_PORT_5432_TCP}/watchwords</property>
+		<property name="connection.username">${POSTGRES_ENV_POSTGRES_USERNAME}</property>
+		<property name="connection.password">${POSTGRES_ENV_POSTGRES_PASSWORD}</property>
 
 		<!-- JDBC connection pool (use the built-in) -->
 		<property name="connection.pool_size">1</property>
@@ -32,7 +32,7 @@
 		<property name="hbm2ddl.auto">create</property>
 
 		<!--  How to name columns in db  -->
-        <property name="hibernate.physical_naming_strategy">com.raether.watchwordbot.ranking.ImprovedNamingStrategy</property>
+        <!--  <property name="hibernate.physical_naming_strategy">com.raether.watchwordbot.ranking.ImprovedNamingStrategy</property>  -->
 
 
 
