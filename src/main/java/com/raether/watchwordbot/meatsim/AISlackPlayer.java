@@ -9,7 +9,7 @@ public class AISlackPlayer implements SlackUser {
 	private String username;
 
 	public AISlackPlayer(String username) {
-		this.id = generateRandomID();
+		this.id = "AIVersion1.0";
 		this.username = username;
 	}
 

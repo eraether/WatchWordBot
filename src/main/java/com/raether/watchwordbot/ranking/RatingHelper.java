@@ -11,7 +11,6 @@ import jskills.ITeam;
 import jskills.Rating;
 import jskills.Team;
 import jskills.trueskill.FactorGraphTrueSkillCalculator;
-import jskills.trueskill.TrueSkillFactorGraph;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.hibernate.Session;
@@ -40,11 +39,9 @@ public class RatingHelper {
 		}
 
 		FactorGraphTrueSkillCalculator calculator = new FactorGraphTrueSkillCalculator();
-		System.out.println("Beginning rating calculations...");
 		Map<IPlayer, Rating> newRankings = calculator.calculateNewRatings(
 				gameInfo, teams,
 				ArrayUtils.toPrimitive(rankings.toArray(new Integer[] {})));
-		System.out.println("Finishing rating calculations...");
 		for (IPlayer player : newRankings.keySet()) {
 			@SuppressWarnings("unchecked")
 			jskills.Player<Player> castPlayer = (jskills.Player<Player>) player;

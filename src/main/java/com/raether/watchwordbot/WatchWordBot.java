@@ -1061,6 +1061,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private void handleAIGuesses() {
+		if (this.game == null)
+			return;
+
 		Player aiGuesseeOnCurrentTeam = null;
 		for (Player follower : this.game.getActingFaction().getFollowers()) {
 			if (follower.isAIControlled()) {
