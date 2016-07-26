@@ -39,7 +39,22 @@ public class SemanticSimilarityTest {
 
 	public static void main(String[] args) {
 		SemanticSimilarityTest test = new SemanticSimilarityTest();
-		test.runTest();
+		test.runTest2();
+	}
+
+	public void runTest2() {
+		String word = "man";
+		for (POS pos : POS.values()) {
+			List<edu.cmu.lti.jawjaw.pobj.Synset> synsets = WordNetUtil
+					.wordToSynsets(word, pos);
+			for (Synset synset : synsets) {
+				SynsetDef def = SynsetDefDAO.findSynsetDefBySynsetAndLang(
+						synset.getSynset(), Lang.eng);
+				// System.out.println(WordNetUtil.getGloss(def));
+
+				System.out.println(def.getSynset() + ":" + def.getDef());
+			}
+		}
 	}
 
 	class MyRelatednessCalculator extends RelatednessCalculator {
@@ -145,7 +160,6 @@ public class SemanticSimilarityTest {
 			boolean alreadyInCache) {
 		// SynsetDef def = SynsetDefDAO.findSynsetDefBySynsetAndLang(
 		// synset.getSynset(), Lang.eng);
-
 
 		String padding = StringUtils.repeat("    ", offset);
 		System.out.println(padding + synset.getName() + "("

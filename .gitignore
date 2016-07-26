@@ -6,4 +6,3 @@ bin/
 .gradle/
 .idea/
 src/main/resources/wnjpn.db
-libs/

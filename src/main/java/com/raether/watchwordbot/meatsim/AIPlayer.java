@@ -4,44 +4,29 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.base.Optional;
 import com.raether.watchwordbot.Faction;
 import com.raether.watchwordbot.TurnOrder;
 import com.raether.watchwordbot.WatchWordClue;
 import com.raether.watchwordbot.WatchWordGrid;
 import com.raether.watchwordbot.WordTile;
+import com.raether.watchwordbot.lex.LexicalDatabaseHelper;
 
-import edu.cmu.lti.lexical_db.ILexicalDatabase;
-import edu.cmu.lti.lexical_db.NictWordNet;
 import edu.cmu.lti.ws4j.RelatednessCalculator;
 import edu.cmu.lti.ws4j.impl.WuPalmer;
 import edu.cmu.lti.ws4j.util.WS4JConfiguration;
 
 public class AIPlayer {
-	private static Optional<ILexicalDatabase> singletonDB = Optional.absent();
 
 	public AIPlayer() {
 
 	}
 
-	public static Optional<ILexicalDatabase> getDatabase() {
-		if (singletonDB.isPresent()) {
-			return singletonDB;
-		}
-		try {
-			singletonDB = Optional.of(new NictWordNet());
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return singletonDB;
+	private void log(String s) {
+		System.out.println("AIPlayer:" + s);
 	}
 
 	public static boolean canBeCreated() {
-		return getDatabase().isPresent();
-	}
-
-	private void log(String s) {
-		System.out.println("AIPlayer:" + s);
+		return LexicalDatabaseHelper.canBeCreated();
 	}
 
 	/*
@@ -93,7 +78,7 @@ public class AIPlayer {
 
 		WS4JConfiguration.getInstance().setMFS(false);
 		RelatednessCalculator relatednessCalculator = new WuPalmer(
-				getDatabase().get());
+				LexicalDatabaseHelper.getDatabase().get());
 
 		double[][] similarityMatrixPositive = relatednessCalculator
 				.getNormalizedSimilarityMatrix(

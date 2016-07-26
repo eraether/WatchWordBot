@@ -17,16 +17,22 @@ import org.hibernate.Session;
 
 import com.raether.watchwordbot.Faction;
 import com.raether.watchwordbot.Player;
+import com.raether.watchwordbot.TurnOrder;
 import com.raether.watchwordbot.WatchWordLobby;
 
 public class RatingHelper {
+
+	private static GameInfo getGameInfo() {
+		return GameInfo.getDefaultGameInfo();
+	}
+
 	public static void updatePlayerRatings(List<Faction> victors,
 			List<Faction> losers, WatchWordLobby lobby, Session session) {
 		System.out.println("Updating player ratings...");
-		GameInfo gameInfo = GameInfo.getDefaultGameInfo();
+		GameInfo gameInfo = getGameInfo();
 		Collection<ITeam> teams = new ArrayList<ITeam>();
 		List<Integer> rankings = new ArrayList<Integer>();
-		final int WINNER = 1;//lower = better
+		final int WINNER = 1;// lower = better
 		final int LOSER = 2;
 
 		for (Faction victor : victors) {
@@ -95,5 +101,17 @@ public class RatingHelper {
 	private static UserEntity readUserEntity(String slackId, Session session) {
 		UserEntity entity = session.get(UserEntity.class, slackId);
 		return entity;
+	}
+
+	public static double getMatchQuality(TurnOrder turnOrder,
+			WatchWordLobby lobby, Session session) {
+		List<ITeam> teams = new ArrayList<ITeam>();
+		GameInfo info = getGameInfo();
+		for (Faction faction : turnOrder.getAllFactions()) {
+			teams.add(buildITeam(faction, info, lobby, session));
+		}
+		FactorGraphTrueSkillCalculator calculator = new FactorGraphTrueSkillCalculator();
+		return calculator.calculateMatchQuality(info, teams);
+
 	}
 }

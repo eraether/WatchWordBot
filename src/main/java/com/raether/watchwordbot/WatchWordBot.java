@@ -13,7 +13,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -22,28 +21,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import jskills.GameInfo;
-import jskills.IPlayer;
-import jskills.ITeam;
-import jskills.Rating;
-import jskills.Team;
-import jskills.trueskill.TrueSkillFactorGraph;
-
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
+import com.raether.watchwordbot.lex.LexicalDatabaseHelper;
 import com.raether.watchwordbot.meatsim.AIPlayer;
 import com.raether.watchwordbot.meatsim.AISlackPlayer;
 import com.raether.watchwordbot.meatsim.BotThoughtProcess;
 import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
 import com.raether.watchwordbot.meatsim.PotentialGuessRow;
-import com.raether.watchwordbot.ranking.RatingValue;
 import com.raether.watchwordbot.ranking.RatingHelper;
-import com.raether.watchwordbot.ranking.UserEntity;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
@@ -51,6 +41,14 @@ import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.impl.SlackSessionFactory;
 import com.ullink.slack.simpleslackapi.listeners.SlackMessagePostedListener;
+
+import edu.cmu.lti.jawjaw.db.SynsetDefDAO;
+import edu.cmu.lti.jawjaw.pobj.Lang;
+import edu.cmu.lti.jawjaw.pobj.POS;
+import edu.cmu.lti.jawjaw.pobj.Synset;
+import edu.cmu.lti.jawjaw.pobj.SynsetDef;
+import edu.cmu.lti.jawjaw.util.WordNetUtil;
+import edu.cmu.lti.lexical_db.ILexicalDatabase;
 
 public class WatchWordBot implements SlackMessagePostedListener {
 	private String apiKey = "";
@@ -201,6 +199,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
+		commands.add(new Command("define", "define a word", GameState.LOBBY,
+				GameState.GAME) {
+			@Override
+			public void run() {
+				defineCommand(event, args, session);
+			}
+
+		});
+
 		commands.add(new Command("bot", Arrays.asList("bots"),
 				"add a bot to the game", false, GameState.LOBBY, GameState.GAME) {
 			@Override
@@ -336,6 +343,33 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		});
 
 		return commands;
+	}
+
+	private void defineCommand(SlackMessagePosted event,
+			LinkedList<String> args, SlackSession session) {
+		if (!LexicalDatabaseHelper.canBeCreated()) {
+			session.sendMessage(event.getChannel(),
+					"Lexical database link could not be established.");
+			return;
+		}
+
+		if (args.size() != 1) {
+			printUsage(event.getChannel(), "define [word]");
+			return;
+		}
+		String word = args.pop();
+
+		String messageOutput = "Defining *" + word + "*:\n";
+		for (POS pos : POS.values()) {
+			List<edu.cmu.lti.jawjaw.pobj.Synset> synsets = WordNetUtil
+					.wordToSynsets(word, pos);
+			for (Synset synset : synsets) {
+				SynsetDef def = SynsetDefDAO.findSynsetDefBySynsetAndLang(
+						synset.getSynset(), Lang.eng);
+				messageOutput += def.getSynset() + ":" + def.getDef() + "\n";
+			}
+		}
+		session.sendMessage(event.getChannel(), messageOutput);
 	}
 
 	private void winCommand(SlackMessagePosted event, LinkedList<String> args,
@@ -1023,6 +1057,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				}
 			}
 		}
+		printMatchQuality();
 		waitForClue();
 	}
 
@@ -1352,6 +1387,37 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				"\nReturning back to the game lobby...");
 		getSession().sendMessage(getCurrentChannel(),
 				printFactions(getWatchWordLobby()));
+	}
+
+	private void printMatchQuality() {
+		if (!this.getSessionFactory().isPresent()) {
+			return;
+		}
+		if (this.game == null) {
+			return;
+		}
+		Session session = null;
+		try {
+			session = getSessionFactory().get().openSession();
+			session.beginTransaction();
+			double gameBalance = RatingHelper.getMatchQuality(getGame()
+					.getTurnOrder(), getWatchWordLobby(), session);
+			NumberFormat format = NumberFormat.getInstance();
+			format.setMaximumFractionDigits(2);
+			format.setMinimumFractionDigits(2);
+			gameBalance *= 100 * 2;// Max game quality seems to be 0.5
+			getSession().sendMessage(
+					getCurrentChannel(),
+					"Current game is *" + format.format(gameBalance)
+							+ "*% balanced.");
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (session != null) {
+				session.close();
+			}
+		}
 	}
 
 	private void updateRankings(List<Faction> victors, List<Faction> losers) {
