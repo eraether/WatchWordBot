@@ -1140,7 +1140,6 @@ hammer
 hand
 handicap
 hang
-happen
 harbour
 hardship
 hardware
@@ -1151,7 +1150,6 @@ hat
 hate
 haul
 haunt
-have
 hay
 head
 headline
