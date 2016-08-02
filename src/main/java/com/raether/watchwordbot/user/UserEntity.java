@@ -1,7 +1,9 @@
-package com.raether.watchwordbot.ranking;
+package com.raether.watchwordbot.user;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
+
+import com.raether.watchwordbot.ranking.RatingValue;
 
 @Entity
 public class UserEntity {

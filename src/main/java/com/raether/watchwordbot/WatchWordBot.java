@@ -26,6 +26,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 
+import com.raether.watchwordbot.feat.UserFeatureRequest;
+import com.raether.watchwordbot.feat.UserFeatureRequestHelper;
 import com.raether.watchwordbot.lex.LexicalDatabaseHelper;
 import com.raether.watchwordbot.meatsim.AIPlayer;
 import com.raether.watchwordbot.meatsim.AISlackPlayer;
@@ -34,6 +36,8 @@ import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
 import com.raether.watchwordbot.meatsim.PotentialGuessRow;
 import com.raether.watchwordbot.ranking.RatingHelper;
+import com.raether.watchwordbot.user.UserEntity;
+import com.raether.watchwordbot.user.UserHelper;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
@@ -48,7 +52,6 @@ import edu.cmu.lti.jawjaw.pobj.POS;
 import edu.cmu.lti.jawjaw.pobj.Synset;
 import edu.cmu.lti.jawjaw.pobj.SynsetDef;
 import edu.cmu.lti.jawjaw.util.WordNetUtil;
-import edu.cmu.lti.lexical_db.ILexicalDatabase;
 
 public class WatchWordBot implements SlackMessagePostedListener {
 	private String apiKey = "";
@@ -175,16 +178,25 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		List<Command> commands = generateCommands(event, args, session);
 
+		Command matchingCommand = findMatchingCommand(commandText, commands,
+				event.getChannel());
+		if (matchingCommand != null) {
+			matchingCommand.run();
+		}
+	}
+
+	protected Command findMatchingCommand(String commandText,
+			Collection<Command> commands, SlackChannel channel) {
 		for (Command command : commands) {
 			if (command.matches(commandText)) {
-				if (!isGameCurrentlyInValidGameState(event.getChannel(),
+				if (!isGameCurrentlyInValidGameState(channel,
 						command.getValidGameStates())) {
-					return;
+					return null;
 				}
-				command.run();
-				break;
+				return command;
 			}
 		}
+		return null;
 	}
 
 	private List<Command> generateCommands(final SlackMessagePosted event,
@@ -199,8 +211,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("define", "define a word", GameState.LOBBY,
-				GameState.GAME) {
+		commands.add(new Command("define", "define a word", GameState.IDLE,
+				GameState.LOBBY, GameState.GAME) {
 			@Override
 			public void run() {
 				defineCommand(event, args, session);
@@ -334,6 +346,14 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
+		commands.add(new Command("feat", "submit a feature request",
+				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
+			@Override
+			public void run() {
+				featCommand(event, args, session);
+			}
+		});
+
 		commands.add(new Command("help", "yes, this is help", true,
 				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
 			@Override
@@ -343,6 +363,155 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		});
 
 		return commands;
+	}
+
+	protected Session createHibernateSession() {
+		if (!this.getSessionFactory().isPresent()) {
+			return null;
+		}
+		Session hibernateSession = null;
+		try {
+			hibernateSession = getSessionFactory().get().openSession();
+
+		} catch (Exception e) {
+			e.printStackTrace();
+
+			if (hibernateSession != null) {
+				hibernateSession.close();
+			}
+		}
+		return hibernateSession;
+	}
+
+	protected void closeHibernateSession(Session session) {
+		try {
+			session.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	protected static String printUserFeedbackRequest(UserFeatureRequest request) {
+		return request.getId() + ": " + request.getDescription();
+	}
+
+	protected void featCommand(final SlackMessagePosted event,
+			final LinkedList<String> args, final SlackSession session) {
+
+		List<Command> featCommands = new ArrayList<Command>();
+
+		featCommands.add(new Command("list", "list all feature requests",
+				GameState.getAllStates()) {
+			@Override
+			public void run() {
+				if (!args.isEmpty()) {
+					printUsage(event.getChannel(), "feat list");
+					return;
+				}
+				Session hibernateSession = createHibernateSession();
+				try {
+					List<UserFeatureRequest> requests = UserFeatureRequestHelper
+							.getFeatureRequests(hibernateSession);
+					String out = "Feature Requests:\n";
+					for (UserFeatureRequest request : requests) {
+						out += printUserFeedbackRequest(request) + "\n";
+					}
+					session.sendMessage(event.getChannel(), out);
+				} finally {
+					hibernateSession.close();
+				}
+			}
+		});
+		featCommands.add(new Command("add", "add a feature request", GameState
+				.getAllStates()) {
+			@Override
+			public void run() {
+				if (args.isEmpty()) {
+					printUsage(event.getChannel(), "feat add [description]");
+					return;
+				}
+				String description = StringUtils.join(args, " ");
+				UserFeatureRequest request = new UserFeatureRequest();
+
+				Session hibernateSession = createHibernateSession();
+				if (hibernateSession == null) {
+					return;
+				}
+				try {
+					hibernateSession.beginTransaction();
+
+					UserEntity user = UserHelper.readOrCreateUserEntity(event
+							.getSender().getId(), event.getSender()
+							.getUserName(), hibernateSession);
+					hibernateSession.saveOrUpdate(user);
+					request.setUserEntity(user);
+					request.setDescription(description);
+					hibernateSession.save(request);
+					hibernateSession.getTransaction().commit();
+					session.sendMessage(event.getChannel(),
+							"Feedback successfully saved.\n"
+									+ printUserFeedbackRequest(request));
+				} finally {
+					closeHibernateSession(hibernateSession);
+				}
+			}
+		});
+
+		featCommands.add(new Command("delete", "delete a feature request",
+				GameState.getAllStates()) {
+			@Override
+			public void run() {
+				if (args.isEmpty()) {
+					printUsage(event.getChannel(), "feat delete [id]");
+					return;
+				}
+				Integer id = null;
+				try {
+					id = Integer.parseInt(args.pop());
+				} catch (Exception e) {
+					session.sendMessage(event.getChannel(), "Could not parse '"
+							+ args.pop() + "'");
+					return;
+				}
+
+				Session hibernateSession = createHibernateSession();
+				try {
+					hibernateSession.beginTransaction();
+					UserFeatureRequest request = hibernateSession.find(
+							UserFeatureRequest.class, id);
+					if (request == null) {
+						session.sendMessage(event.getChannel(),
+								"Could not find feature with id " + id);
+						return;
+					}
+					hibernateSession.delete(request);
+					hibernateSession.getTransaction().commit();
+					session.sendMessage(event.getChannel(), "Deleted "
+							+ printUserFeedbackRequest(request));
+				} finally {
+					closeHibernateSession(hibernateSession);
+				}
+			}
+		});
+
+		String featureSubcommandHelp = printCommands("Feature subcommand help",
+				featCommands);
+
+		if (args.isEmpty()) {
+			printUsage(event.getChannel(), "feat [sub_command] (params)");
+			session.sendMessage(event.getChannel(), featureSubcommandHelp);
+			return;
+		}
+
+		String commandText = args.pop();
+		Command command = this.findMatchingCommand(commandText, featCommands,
+				event.getChannel());
+		if (command != null) {
+			command.run();
+		} else {
+			session.sendMessage(event.getChannel(), featureSubcommandHelp);
+		}
+
 	}
 
 	private void defineCommand(SlackMessagePosted event,
@@ -432,6 +601,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			SlackSession session) {
 		List<Command> commands = generateCommands(event, args, session);
 
+		session.sendMessage(event.getChannel(),
+				printCommands("Contextual Help", commands));
+
+	}
+
+	private String printCommands(String title, List<Command> commands) {
 		List<Command> filteredCommands = new ArrayList<Command>();
 		for (Command command : commands) {
 			if (command.getValidGameStates().contains(this.currentGameState)
@@ -440,7 +615,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		}
 
-		String totalHelpText = "Contextual Help\n";
+		String totalHelpText = title + "\n";
 		for (Command command : filteredCommands) {
 			String helpText = "*" + command.getPrimaryAlias() + "*";
 			if (command.hasAdditionalAliases()) {
@@ -449,8 +624,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			helpText += " = " + command.getHelpText() + "\n";
 			totalHelpText += helpText;
 		}
-
-		session.sendMessage(event.getChannel(), totalHelpText);
+		return totalHelpText;
 	}
 
 	private void lobbyCommand(SlackMessagePosted event,
@@ -1405,7 +1579,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			NumberFormat format = NumberFormat.getInstance();
 			format.setMaximumFractionDigits(2);
 			format.setMinimumFractionDigits(2);
-			gameBalance *= 100 * 2;// Max game quality seems to be 0.5
+			gameBalance *= 100;
 			getSession().sendMessage(
 					getCurrentChannel(),
 					"Current game is *" + format.format(gameBalance)
@@ -1590,5 +1764,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 }
 
 enum GameState {
-	IDLE, LOBBY, GAME
+	IDLE, LOBBY, GAME;
+
+	public static GameState[] getAllStates() {
+		return GameState.values();
+	}
 }

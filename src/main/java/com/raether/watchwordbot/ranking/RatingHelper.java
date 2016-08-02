@@ -19,11 +19,18 @@ import com.raether.watchwordbot.Faction;
 import com.raether.watchwordbot.Player;
 import com.raether.watchwordbot.TurnOrder;
 import com.raether.watchwordbot.WatchWordLobby;
+import com.raether.watchwordbot.user.UserEntity;
+import com.raether.watchwordbot.user.UserHelper;
+import com.ullink.slack.simpleslackapi.SlackUser;
 
 public class RatingHelper {
 
-	private static GameInfo getGameInfo() {
+	public static GameInfo getGameInfo() {
 		return GameInfo.getDefaultGameInfo();
+	}
+
+	public static void addDefaultRatingToUser(UserEntity entity) {
+		entity.setRating(new RatingValue(getGameInfo().getDefaultRating()));
 	}
 
 	public static void updatePlayerRatings(List<Faction> victors,
@@ -51,9 +58,10 @@ public class RatingHelper {
 		for (IPlayer player : newRankings.keySet()) {
 			@SuppressWarnings("unchecked")
 			jskills.Player<Player> castPlayer = (jskills.Player<Player>) player;
-			UserEntity entity = readOrCreateUserEntity(
-					lobby.getUser(castPlayer.getId()).getId(),
-					gameInfo.getDefaultRating(), session);
+			SlackUser user = lobby.getUser(castPlayer.getId());
+
+			UserEntity entity = UserHelper.readOrCreateUserEntity(user.getId(),
+					user.getUserName(), session);
 			updateRatingForPlayer(entity, newRankings.get(player), session);
 		}
 	}
@@ -75,32 +83,17 @@ public class RatingHelper {
 
 		Team team = new Team();
 		for (Player player : faction.getAllPlayers()) {
-			String slackId = lobby.getUser(player).getId();
+			SlackUser user = lobby.getUser(player);
+
+			String slackId = user.getId();
+			String slackName = user.getUserName();
 			jskills.Player<Player> jskillsPlayer = new jskills.Player<Player>(
 					player);
-			UserEntity entity = readOrCreateUserEntity(slackId,
-					info.getDefaultRating(), session);
+			UserEntity entity = UserHelper.readOrCreateUserEntity(slackId,
+					slackName, session);
 			team.addPlayer(jskillsPlayer, entity.getRating().createRating());
 		}
 		return team;
-	}
-
-	private static UserEntity readOrCreateUserEntity(String slackId,
-			Rating defaultRating, Session session) {
-		UserEntity entity = readUserEntity(slackId, session);
-		if (entity == null) {
-			entity = new UserEntity();
-			entity.setUserId(slackId);
-		}
-		if (entity.getRating() == null) {
-			entity.setRating(new RatingValue(defaultRating));
-		}
-		return entity;
-	}
-
-	private static UserEntity readUserEntity(String slackId, Session session) {
-		UserEntity entity = session.get(UserEntity.class, slackId);
-		return entity;
 	}
 
 	public static double getMatchQuality(TurnOrder turnOrder,

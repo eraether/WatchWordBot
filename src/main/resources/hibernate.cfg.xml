@@ -31,12 +31,13 @@
 		<!-- Drop and re-create the database schema on startup -->
 		<property name="hbm2ddl.auto">${DB_CREATION_STRATEGY}</property>
 
-		<!--  How to name columns in db  -->
-        <!--  <property name="hibernate.physical_naming_strategy">com.raether.watchwordbot.ranking.ImprovedNamingStrategy</property>  -->
+		<!-- How to name columns in db -->
+		<!-- <property name="hibernate.physical_naming_strategy">com.raether.watchwordbot.ranking.ImprovedNamingStrategy</property> -->
 
 
 
-		<mapping class="com.raether.watchwordbot.ranking.UserEntity" />
+		<mapping class="com.raether.watchwordbot.user.UserEntity" />
+		<mapping class="com.raether.watchwordbot.feat.UserFeatureRequest" />
 
 	</session-factory>
 
