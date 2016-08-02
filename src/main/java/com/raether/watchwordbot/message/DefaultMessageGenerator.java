@@ -1,7 +1,11 @@
 package com.raether.watchwordbot.message;
 
 public class DefaultMessageGenerator implements MessageGenerator {
-
+	
+	public String getGameStartMessage() {
+		return "Starting the game...";
+	}
+	
 	public String getCorrectPickMessage() {
 		return "Nice!";
 	}
@@ -17,5 +21,4 @@ public class DefaultMessageGenerator implements MessageGenerator {
 	public String getWinMessage() {
 		return "Game over!";
 	}
-	
 }

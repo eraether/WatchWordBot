@@ -1170,7 +1170,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		currentGameState = GameState.GAME;
-		session.sendMessage(getCurrentChannel(), "Starting the game...");
+		session.sendMessage(getCurrentChannel(), messageGenerator.getGameStartMessage());
 		long seed1 = System.nanoTime();
 		Random random1 = new Random(seed1);
 		int totalRows = 5;
