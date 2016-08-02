@@ -35,6 +35,8 @@ import com.raether.watchwordbot.meatsim.BotThoughtProcess;
 import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
 import com.raether.watchwordbot.meatsim.PotentialGuessRow;
+import com.raether.watchwordbot.message.DefaultMessageGenerator;
+import com.raether.watchwordbot.message.MessageGenerator;
 import com.raether.watchwordbot.ranking.RatingHelper;
 import com.raether.watchwordbot.user.UserEntity;
 import com.raether.watchwordbot.user.UserHelper;
@@ -63,6 +65,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private WatchWordGame game;
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private Optional<SessionFactory> sessionFactory;
+	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
 
 	private static Boolean DEBUG = Boolean.FALSE;
 
@@ -982,15 +985,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			if (pickedAssassin) {
 				session.sendMessage(getCurrentChannel(),
-						"Ouch! " + getUsernameString(eventUser)
+						messageGenerator.getAssassinPickMessage() + " " + getUsernameString(eventUser)
 								+ " has picked the assassin!  "
 								+ guesserFaction.getName() + " loses!");
 			} else if (pickedOwnCard) {
-				session.sendMessage(getCurrentChannel(), "Nice! "
+				session.sendMessage(getCurrentChannel(), messageGenerator.getCorrectPickMessage() + " "
 						+ getUsernameString(eventUser)
 						+ " has picked correctly.");
 			} else {
-				session.sendMessage(getCurrentChannel(), "Dang! "
+				session.sendMessage(getCurrentChannel(), messageGenerator.getIncorrectPickMessage() + " "
 						+ getUsernameString(eventUser) + " has picked a *"
 						+ guessedTile.getFaction().getName() + "* card.");
 			}
@@ -1539,7 +1542,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private void finishGame(List<Faction> victors, SlackSession session) {
 		String victorString = "";
 		for (Faction victor : victors) {
-			String singleVictorString = "Game over!  " + victor.getName()
+			String singleVictorString = messageGenerator.getWinMessage() + "  " + victor.getName()
 					+ " has won!  Congratulations to:\n";
 			for (Player player : victor.getAllPlayers()) {
 				singleVictorString += getUsernameString(getWatchWordLobby()
