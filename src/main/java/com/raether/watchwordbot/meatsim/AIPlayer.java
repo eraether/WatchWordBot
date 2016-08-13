@@ -56,8 +56,12 @@ public class AIPlayer {
 		List<String> negativeClues = new ArrayList<String>();
 		int danglingNegativeGuessCount = 0;
 		for (WatchWordClue clue : currentFactionClues) {
-			positiveClues.add(clue.getWord());
-			danglingPositiveGuessCount += clue.getAmount() - 1;
+			if (clue.isZero()) {
+				negativeClues.add(clue.getWord());
+			} else {
+				positiveClues.add(clue.getWord());
+				danglingPositiveGuessCount += clue.getAmount() - 1;
+			}
 		}
 		for (WatchWordClue clue : otherFactionClues) {
 			negativeClues.add(clue.getWord());
@@ -67,7 +71,9 @@ public class AIPlayer {
 		Collections.reverse(positiveClues);
 		Collections.reverse(negativeClues);
 
-		if (danglingPositiveGuessCount <= 0) {
+		// if (danglingPositiveGuessCount <= 0) {
+		if (currentFactionClues.isEmpty()
+				|| currentFactionClues.get(0).getAmount() - 1 <= 0) {
 			return new BotThoughtProcess(DesiredBotAction.END_TURN);
 		}
 
