@@ -5,6 +5,7 @@ public class WatchWordClue {
 	private int amount;
 	private boolean unlimitedGuesses;
 	private boolean zeroClue;
+	private int guessesMade = 0;
 
 	public WatchWordClue(String word, int amount, boolean unlimitedGuesses,
 			boolean zeroClue) {
@@ -22,8 +23,20 @@ public class WatchWordClue {
 		return this.word;
 	}
 
-	public int getAmount() {
+	public int getOriginalAmount() {
 		return this.amount;
+	}
+
+	public int getRemainingGuesses() {
+		return getOriginalAmount() - getGuessesMade();
+	}
+
+	public void setGuessesMade(int guessesMade) {
+		this.guessesMade = guessesMade;
+	}
+
+	public int getGuessesMade() {
+		return this.guessesMade;
 	}
 
 	public boolean isUnlimited() {
@@ -32,5 +45,9 @@ public class WatchWordClue {
 
 	public boolean isZero() {
 		return this.zeroClue;
+	}
+
+	public boolean hasGuessed() {
+		return getGuessesMade() != 0;
 	}
 }

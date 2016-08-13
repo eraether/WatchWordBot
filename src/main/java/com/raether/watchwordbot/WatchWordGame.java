@@ -14,7 +14,6 @@ public class WatchWordGame {
 	private WatchWordClue currentClue;
 
 	private Map<Faction, List<WatchWordClue>> cluesForFaction = new HashMap<Faction, List<WatchWordClue>>();
-	private int totalGuessesMadeThisTurn = 0;
 
 	Long lastCountdownStartTime = null;
 	Faction lastFactionToAct = null;
@@ -55,7 +54,6 @@ public class WatchWordGame {
 	public void changeTurns() {
 		getTurnOrder().nextTurn();
 		this.currentClue = null;
-		this.totalGuessesMadeThisTurn = 0;
 	}
 
 	public void removeFaction(Faction guesserFaction) {
@@ -87,13 +85,13 @@ public class WatchWordGame {
 	}
 
 	public void guess() {
-		totalGuessesMadeThisTurn++;
+		getClue().setGuessesMade(getClue().getGuessesMade() + 1);
 	}
 
 	public int getRemainingGuesses() {
 		if (!wasClueGivenThisTurn())
 			return 0;
-		return getClue().getAmount() - totalGuessesMadeThisTurn;
+		return getClue().getRemainingGuesses();
 	}
 
 	public void startCountingDown(int time, TimeUnit unit) {

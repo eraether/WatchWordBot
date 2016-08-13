@@ -760,6 +760,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					"Game has been canceled by "
 							+ getUsernameString(event.getSender()));
 			partialGameReset();
+			session.sendMessage(getCurrentChannel(),
+					printFactions(getWatchWordLobby()));
 		} else {
 			session.sendMessage(
 					getCurrentChannel(),
@@ -1147,7 +1149,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(eventChannel, getUsernameString(eventUser)
 					+ ", hold your horses!  A clue has not been given yet!");
 			return;
-		} else if (game.getRemainingGuesses() == game.getClue().getAmount()) {
+		} else if (!game.getClue().hasGuessed()) {
 			session.sendMessage(eventChannel,
 					"You must make at least one guess before you can end your turn!");
 			return;

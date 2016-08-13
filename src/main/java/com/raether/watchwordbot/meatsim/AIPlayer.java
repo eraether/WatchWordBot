@@ -60,12 +60,12 @@ public class AIPlayer {
 				negativeClues.add(clue.getWord());
 			} else {
 				positiveClues.add(clue.getWord());
-				danglingPositiveGuessCount += clue.getAmount() - 1;
+				danglingPositiveGuessCount += clue.getRemainingGuesses() - 1;
 			}
 		}
 		for (WatchWordClue clue : otherFactionClues) {
 			negativeClues.add(clue.getWord());
-			danglingNegativeGuessCount += clue.getAmount() - 1;
+			danglingNegativeGuessCount += clue.getRemainingGuesses() - 1;
 		}
 
 		Collections.reverse(positiveClues);
@@ -73,7 +73,7 @@ public class AIPlayer {
 
 		// if (danglingPositiveGuessCount <= 0) {
 		if (currentFactionClues.isEmpty()
-				|| currentFactionClues.get(0).getAmount() - 1 <= 0) {
+				|| currentFactionClues.get(0).getRemainingGuesses() - 1 <= 0) {
 			return new BotThoughtProcess(DesiredBotAction.END_TURN);
 		}
 
@@ -101,12 +101,12 @@ public class AIPlayer {
 		int maxNegativeGuessHistory = 0;
 
 		List<PotentialGuess> allPotentialGuesses = new ArrayList<PotentialGuess>();
-		for (int currentWordIndex = 0; currentWordIndex < Math.max(
-				unrevealedWords.size(), maxPositiveGuessHistory); currentWordIndex++) {
+		for (int currentWordIndex = 0; currentWordIndex < unrevealedWords
+				.size(); currentWordIndex++) {
 			String currentWord = unrevealedWords.get(currentWordIndex);
 			List<PotentialGuessRow> positiveGuessRows = new ArrayList<PotentialGuessRow>();
-			for (int currentPositiveClueIndex = 0; currentPositiveClueIndex < positiveClues
-					.size(); currentPositiveClueIndex++) {
+			for (int currentPositiveClueIndex = 0; currentPositiveClueIndex < Math
+					.min(positiveClues.size(), maxPositiveGuessHistory); currentPositiveClueIndex++) {
 				String currentClue = positiveClues
 						.get(currentPositiveClueIndex);
 				double computedConfidence = similarityMatrixPositive[currentPositiveClueIndex][currentWordIndex];
@@ -118,7 +118,7 @@ public class AIPlayer {
 
 			List<PotentialGuessRow> negativeGuessRows = new ArrayList<PotentialGuessRow>();
 			for (int currentNegativeClueIndex = 0; currentNegativeClueIndex < Math
-					.max(negativeClues.size(), maxNegativeGuessHistory); currentNegativeClueIndex++) {
+					.min(negativeClues.size(), maxNegativeGuessHistory); currentNegativeClueIndex++) {
 				String currentClue = negativeClues
 						.get(currentNegativeClueIndex);
 				double computedConfidence = similarityMatrixNegative[currentNegativeClueIndex][currentWordIndex];
