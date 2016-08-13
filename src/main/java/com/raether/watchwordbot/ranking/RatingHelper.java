@@ -29,12 +29,25 @@ public class RatingHelper {
 		return GameInfo.getDefaultGameInfo();
 	}
 
-	public static void addDefaultRatingToUser(UserEntity entity) {
-		entity.setRating(new RatingValue(getGameInfo().getDefaultRating()));
+	public static void addDefaultRatingToUser(UserEntity entity, Session session) {
+		if (entity.getClueGiverRating() == null) {
+			entity.setClueGiverRating(new RatingValue(getGameInfo()
+					.getDefaultRating()));
+			session.saveOrUpdate(entity.getClueGiverRating());
+		}
+		if (entity.getGuesserRating() == null) {
+			entity.setGuesserRating(new RatingValue(getGameInfo()
+					.getDefaultRating()));
+			session.saveOrUpdate(entity.getGuesserRating());
+		}
 	}
 
 	public static void updatePlayerRatings(List<Faction> victors,
 			List<Faction> losers, WatchWordLobby lobby, Session session) {
+		List<Faction> allFactions = new ArrayList<Faction>();
+		allFactions.addAll(victors);
+		allFactions.addAll(losers);
+
 		System.out.println("Updating player ratings...");
 		GameInfo gameInfo = getGameInfo();
 		Collection<ITeam> teams = new ArrayList<ITeam>();
@@ -59,22 +72,31 @@ public class RatingHelper {
 			@SuppressWarnings("unchecked")
 			jskills.Player<Player> castPlayer = (jskills.Player<Player>) player;
 			SlackUser user = lobby.getUser(castPlayer.getId());
+			Player wwPlayer = castPlayer.getId();
+			boolean isLeader = false;
+			for (Faction faction : allFactions) {
+				if (faction.isLeader(wwPlayer)) {
+					isLeader = true;
+					break;
+				}
+			}
 
 			UserEntity entity = UserHelper.readOrCreateUserEntity(user.getId(),
 					user.getUserName(), session);
-			updateRatingForPlayer(entity, newRankings.get(player), session);
+			updateRatingForPlayer(entity, isLeader, newRankings.get(player),
+					session);
 		}
 	}
 
 	private static void updateRatingForPlayer(UserEntity entity,
-			Rating newRating, Session session) {
-
-		System.out.println("Setting rating for " + entity.getUserId()
-				+ " from " + entity.getRating().getMean() + "("
-				+ entity.getRating().getStandardDeviation() + ")" + " to "
-				+ newRating.getMean() + "(" + newRating.getStandardDeviation()
-				+ ")");
-		entity.setRating(new RatingValue(newRating));
+			boolean wasLeader, Rating newRating, Session session) {
+		if (wasLeader) {
+			entity.getClueGiverRating().update(newRating);
+			session.saveOrUpdate(entity.getClueGiverRating());
+		} else {
+			entity.getGuesserRating().update(newRating);
+			session.saveOrUpdate(entity.getGuesserRating());
+		}
 		session.saveOrUpdate(entity);
 	}
 
@@ -82,6 +104,7 @@ public class RatingHelper {
 			WatchWordLobby lobby, Session session) {
 
 		Team team = new Team();
+
 		for (Player player : faction.getAllPlayers()) {
 			SlackUser user = lobby.getUser(player);
 
@@ -91,7 +114,13 @@ public class RatingHelper {
 					player);
 			UserEntity entity = UserHelper.readOrCreateUserEntity(slackId,
 					slackName, session);
-			team.addPlayer(jskillsPlayer, entity.getRating().createRating());
+			if (faction.isLeader(player)) {
+				team.addPlayer(jskillsPlayer, entity.getClueGiverRating()
+						.createRating());
+			} else {
+				team.addPlayer(jskillsPlayer, entity.getGuesserRating()
+						.createRating());
+			}
 		}
 		return team;
 	}

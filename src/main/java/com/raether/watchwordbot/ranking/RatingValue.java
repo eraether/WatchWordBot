@@ -1,12 +1,16 @@
 package com.raether.watchwordbot.ranking;
 
-import javax.persistence.Embeddable;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
 
 import jskills.Rating;
 
-@Embeddable
+@Entity
 public class RatingValue {
-
+	@Id
+	@GeneratedValue
+	private int id;
 	private double mean;
 	private double standardDeviation;
 
@@ -37,6 +41,11 @@ public class RatingValue {
 
 	public Rating createRating() {
 		return new Rating(getMean(), getStandardDeviation());
+	}
+
+	public void update(Rating newRating) {
+		setMean(newRating.getMean());
+		setStandardDeviation(newRating.getStandardDeviation());
 	}
 
 }

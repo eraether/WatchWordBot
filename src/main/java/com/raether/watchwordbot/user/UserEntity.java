@@ -2,6 +2,7 @@ package com.raether.watchwordbot.user;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.OneToOne;
 
 import com.raether.watchwordbot.ranking.RatingValue;
 
@@ -11,7 +12,10 @@ public class UserEntity {
 	private String userId;
 	// @Transient
 	private String username;
-	private RatingValue rating;
+	@OneToOne
+	private RatingValue guesserRating;
+	@OneToOne
+	private RatingValue clueGiverRating;
 
 	public String getUsername() {
 		return username;
@@ -29,12 +33,23 @@ public class UserEntity {
 		this.userId = userId;
 	}
 
-	public RatingValue getRating() {
-		return rating;
+	public RatingValue getGuesserRating() {
+		return this.guesserRating;
 	}
 
-	public void setRating(RatingValue rating) {
-		this.rating = rating;
+	public void setGuesserRating(RatingValue value) {
+		this.guesserRating = value;
 	}
 
+	public RatingValue getClueGiverRating() {
+		return this.clueGiverRating;
+	}
+
+	public void setClueGiverRating(RatingValue value) {
+		this.clueGiverRating = value;
+	}
+
+	public boolean hasUndefinedRatings() {
+		return getClueGiverRating() == null || getGuesserRating() == null;
+	}
 }

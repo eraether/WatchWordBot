@@ -13,8 +13,8 @@ public class UserHelper {
 			entity.setUserId(slackId);
 			entity.setUsername(username);
 		}
-		if (entity.getRating() == null) {
-			RatingHelper.addDefaultRatingToUser(entity);
+		if (entity.getGuesserRating() == null) {
+			RatingHelper.addDefaultRatingToUser(entity, session);
 		}
 		return entity;
 	}

@@ -38,7 +38,8 @@
 
 		<mapping class="com.raether.watchwordbot.user.UserEntity" />
 		<mapping class="com.raether.watchwordbot.feat.UserFeatureRequest" />
-
+		<mapping class="com.raether.watchwordbot.ranking.RatingValue" />
+		
 	</session-factory>
 
 </hibernate-configuration>
