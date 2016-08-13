@@ -37,6 +37,8 @@ import com.raether.watchwordbot.meatsim.BotThoughtProcess;
 import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
 import com.raether.watchwordbot.meatsim.PotentialGuessRow;
+import com.raether.watchwordbot.message.DefaultMessageGenerator;
+import com.raether.watchwordbot.message.MessageGenerator;
 import com.raether.watchwordbot.ranking.RatingHelper;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
@@ -64,6 +66,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private WatchWordGame game;
 	private List<String> wordList = null;
 	private List<Thread> aiThreads = new ArrayList<Thread>();
+	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
 	private static Boolean DEBUG = Boolean.FALSE;
 
 	// add-ons
@@ -1045,15 +1048,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			if (pickedAssassin) {
 				session.sendMessage(getCurrentChannel(),
-						"Ouch! " + getUsernameString(eventUser)
+						messageGenerator.getAssassinPickMessage() + " " + getUsernameString(eventUser)
 								+ " has picked the assassin!  "
 								+ guesserFaction.getName() + " loses!");
 			} else if (pickedOwnCard) {
-				session.sendMessage(getCurrentChannel(), "Nice! "
+				session.sendMessage(getCurrentChannel(), messageGenerator.getCorrectPickMessage() + " "
 						+ getUsernameString(eventUser)
 						+ " has picked correctly.");
 			} else {
-				session.sendMessage(getCurrentChannel(), "Dang! "
+				session.sendMessage(getCurrentChannel(), messageGenerator.getIncorrectPickMessage() + " "
 						+ getUsernameString(eventUser) + " has picked a *"
 						+ guessedTile.getFaction().getName() + "* card.");
 			}
@@ -1236,7 +1239,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		currentGameState = GameState.GAME;
-		session.sendMessage(getCurrentChannel(), "Starting the game...");
+		session.sendMessage(getCurrentChannel(), messageGenerator.getGameStartMessage());
 		long seed1 = System.nanoTime();
 		Random random1 = new Random(seed1);
 		int totalRows = 5;
@@ -1618,7 +1621,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		String victorString = "";
 		for (Faction victor : victors) {
-			String singleVictorString = "Game over!  " + victor.getName()
+			String singleVictorString = messageGenerator.getWinMessage() + "  " + victor.getName()
 					+ " has won!  Congratulations to:\n";
 			for (Player player : victor.getAllPlayers()) {
 				singleVictorString += getUsernameString(getWatchWordLobby()
