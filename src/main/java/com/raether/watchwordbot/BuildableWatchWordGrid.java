@@ -25,11 +25,12 @@ public class BuildableWatchWordGrid {
 		return this;
 	}
 
-	public void randomlyAssign(Faction faction, int count, Random rand) {
+	public BuildableWatchWordGrid randomlyAssign(Faction faction, int count,
+			Random rand) {
 		List<Integer> unassignedTileIndices = getUnassignedTileIndices();
 		if (unassignedTileIndices.size() < count) {
 			fillRemainder(faction);
-			return;
+			return this;
 		}
 
 		for (int i = 0; i < count; i++) {
@@ -38,6 +39,7 @@ public class BuildableWatchWordGrid {
 			unassignedTileIndices.remove(randomIndex);
 			owners.set(index, faction);
 		}
+		return this;
 	}
 
 	private List<Integer> getUnassignedTileIndices() {

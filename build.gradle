@@ -27,6 +27,9 @@ dependencies{
 	compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
 	compile group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
 
+	//github API
+	compile group: 'org.kohsuke', name:'github-api', version:'1.77'
+
 	//wordnet (OPTIONAL)
 	compile group: 'de.sciss', name: 'ws4j', version: '0.1.0'
 	//TO USE WORDNET (for the AI), please download wnjpn.db and add it to src/main/resources (http://nlpwww.nict.go.jp/wn-ja/data/1.1/wnjpn.db.gz)
@@ -55,6 +58,17 @@ task semanticTest(type:JavaExec){
 	classpath = sourceSets.main.runtimeClasspath
 }
 
+task githubTest(type:JavaExec){
+	main = 'com.raether.watchwordbot.gh.GithubTest'
+	classpath = sourceSets.main.runtimeClasspath
+
+	environment "GITHUB_LOGIN", System.getProperty("GITHUB_LOGIN");
+	environment "GITHUB_PASSWORD", System.getProperty("GITHUB_PASSWORD");
+	environment "GITHUB_OAUTH", System.getProperty("GITHUB_OAUTH");
+	environment "GITHUB_ENDPOINT", System.getProperty("GITHUB_ENDPOINT");
+	systemProperty "GITHUB_REPOSITORY", System.getProperty("GITHUB_REPOSITORY");
+}
+
 task runner(type:JavaExec) {
 	main = 'com.raether.watchwordbot.Runner'
 	systemProperty "POSTGRES_PORT_5432_TCP_ADDR", System.getProperty("POSTGRES_PORT_5432_TCP_ADDR")
@@ -62,6 +76,13 @@ task runner(type:JavaExec) {
 	systemProperty "POSTGRES_ENV_POSTGRES_USERNAME", System.getProperty("POSTGRES_ENV_POSTGRES_USERNAME")
 	systemProperty "POSTGRES_ENV_POSTGRES_PASSWORD", System.getProperty("POSTGRES_ENV_POSTGRES_PASSWORD")
 	systemProperty "DB_CREATION_STRATEGY", System.getProperty("DB_CREATION_STRATEGY") //create or update
+
+	environment "GITHUB_LOGIN", System.getProperty("GITHUB_LOGIN");
+	environment "GITHUB_PASSWORD", System.getProperty("GITHUB_PASSWORD");
+	environment "GITHUB_OAUTH", System.getProperty("GITHUB_OAUTH");
+	environment "GITHUB_ENDPOINT", System.getProperty("GITHUB_ENDPOINT");
+	systemProperty "GITHUB_REPOSITORY", System.getProperty("GITHUB_REPOSITORY");
+
 	classpath = sourceSets.main.runtimeClasspath
 	args = {
 		if(project.hasProperty("apiKey")){

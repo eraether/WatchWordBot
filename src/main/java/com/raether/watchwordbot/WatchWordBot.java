@@ -25,9 +25,11 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.kohsuke.github.GHIssue;
+import org.kohsuke.github.GHRepository;
 
 import com.raether.watchwordbot.feat.UserFeatureRequest;
-import com.raether.watchwordbot.feat.UserFeatureRequestHelper;
+import com.raether.watchwordbot.gh.GitHubHelper;
 import com.raether.watchwordbot.lex.LexicalDatabaseHelper;
 import com.raether.watchwordbot.meatsim.AIPlayer;
 import com.raether.watchwordbot.meatsim.AISlackPlayer;
@@ -36,8 +38,6 @@ import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
 import com.raether.watchwordbot.meatsim.PotentialGuessRow;
 import com.raether.watchwordbot.ranking.RatingHelper;
-import com.raether.watchwordbot.user.UserEntity;
-import com.raether.watchwordbot.user.UserHelper;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
@@ -54,21 +54,35 @@ import edu.cmu.lti.jawjaw.pobj.SynsetDef;
 import edu.cmu.lti.jawjaw.util.WordNetUtil;
 
 public class WatchWordBot implements SlackMessagePostedListener {
+	// I/O
 	private String apiKey = "";
 	private SlackSession slackSession;
 
-	private WatchWordLobby watchWordLobby;
+	// Gameplay
 	private GameState currentGameState = GameState.IDLE;
-	private List<String> wordList = null;
+	private WatchWordLobby watchWordLobby;
 	private WatchWordGame game;
+	private List<String> wordList = null;
 	private List<Thread> aiThreads = new ArrayList<Thread>();
-	private Optional<SessionFactory> sessionFactory;
-
 	private static Boolean DEBUG = Boolean.FALSE;
 
-	public WatchWordBot(String apiKey, Optional<SessionFactory> sessionFactory) {
+	// add-ons
+	private Optional<SessionFactory> sessionFactory;
+	private Optional<GHRepository> repo;
+
+	public WatchWordBot(String apiKey, Optional<SessionFactory> sessionFactory,
+			Optional<GHRepository> repo) {
 		setAPIKey(apiKey);
 		setSessionFactory(sessionFactory);
+		setGHRepo(repo);
+	}
+
+	private void setGHRepo(Optional<GHRepository> repo) {
+		this.repo = repo;
+	}
+
+	public Optional<GHRepository> getGHRepo() {
+		return this.repo;
 	}
 
 	private void setSessionFactory(Optional<SessionFactory> sessionFactory) {
@@ -138,7 +152,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			try {
 				session.connect();
 			} catch (Exception e) {
-
+				e.printStackTrace();
 			}
 		}
 	}
@@ -346,8 +360,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("feat", "submit a feature request",
-				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
+		commands.add(new Command("feat", Arrays.asList("feature"),
+				"submit a feature request", false, GameState.IDLE,
+				GameState.LOBBY, GameState.GAME) {
 			@Override
 			public void run() {
 				featCommand(event, args, session);
@@ -362,7 +377,43 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
+		commands.add(new Command("banish",
+				"banish a word from the game forever", GameState.GAME) {
+			@Override
+			public void run() {
+				banishCommand(event, args, session);
+			}
+		});
+
 		return commands;
+	}
+
+	protected void banishCommand(SlackMessagePosted event,
+			LinkedList<String> args, SlackSession session) {
+		if (args.isEmpty()) {
+			printUsage(event.getChannel(), "banish [word]");
+			return;
+		}
+
+		String banishedWord = args.pop();
+
+		boolean match = false;
+		for (String word : wordList) {
+			if (word.equalsIgnoreCase(banishedWord)) {
+				match = true;
+				break;
+			}
+		}
+
+		if (!match) {
+			session.sendMessage(event.getChannel(), "'" + banishedWord
+					+ "' not found in wordlist.");
+			return;
+		}
+
+		session.sendMessage(event.getChannel(),
+				"Banish command not implemented.");
+
 	}
 
 	protected Session createHibernateSession() {
@@ -391,6 +442,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
+	protected static String printUserFeedbackRequest(GHIssue issue) {
+		return issue.getNumber() + ":" + issue.getTitle() + "("
+				+ issue.getHtmlUrl() + ")";
+	}
+
 	protected static String printUserFeedbackRequest(UserFeatureRequest request) {
 		return request.getId() + ": " + request.getDescription();
 	}
@@ -398,6 +454,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	protected void featCommand(final SlackMessagePosted event,
 			final LinkedList<String> args, final SlackSession session) {
 
+		if (!getGHRepo().isPresent()) {
+			session.sendMessage(event.getChannel(),
+					"Could not establish link to github.");
+			return;
+		}
 		List<Command> featCommands = new ArrayList<Command>();
 
 		featCommands.add(new Command("list", "list all feature requests",
@@ -408,17 +469,18 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					printUsage(event.getChannel(), "feat list");
 					return;
 				}
-				Session hibernateSession = createHibernateSession();
+
 				try {
-					List<UserFeatureRequest> requests = UserFeatureRequestHelper
-							.getFeatureRequests(hibernateSession);
 					String out = "Feature Requests:\n";
-					for (UserFeatureRequest request : requests) {
-						out += printUserFeedbackRequest(request) + "\n";
+					List<GHIssue> issues = GitHubHelper
+							.getSlackIssues(getGHRepo().get());
+					for (GHIssue issue : issues) {
+						out += printUserFeedbackRequest(issue) + "\n";
 					}
 					session.sendMessage(event.getChannel(), out);
-				} finally {
-					hibernateSession.close();
+				} catch (Exception e) {
+					session.sendMessage(event.getChannel(),
+							"Could not read features");
 				}
 			}
 		});
@@ -431,38 +493,28 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					return;
 				}
 				String description = StringUtils.join(args, " ");
-				UserFeatureRequest request = new UserFeatureRequest();
 
-				Session hibernateSession = createHibernateSession();
-				if (hibernateSession == null) {
-					return;
-				}
 				try {
-					hibernateSession.beginTransaction();
-
-					UserEntity user = UserHelper.readOrCreateUserEntity(event
-							.getSender().getId(), event.getSender()
-							.getUserName(), hibernateSession);
-					hibernateSession.saveOrUpdate(user);
-					request.setUserEntity(user);
-					request.setDescription(description);
-					hibernateSession.save(request);
-					hibernateSession.getTransaction().commit();
+					GHIssue issue = GitHubHelper.createGHIssue(getGHRepo()
+							.get(), description, printFullUserDetails(event
+							.getSender()));
 					session.sendMessage(event.getChannel(),
-							"Feedback successfully saved.\n"
-									+ printUserFeedbackRequest(request));
-				} finally {
-					closeHibernateSession(hibernateSession);
+							"Successfully created issue:"
+									+ printUserFeedbackRequest(issue));
+
+				} catch (Exception e) {
+					session.sendMessage(event.getChannel(),
+							"Could not create issue:" + e);
 				}
 			}
 		});
 
-		featCommands.add(new Command("delete", "delete a feature request",
+		featCommands.add(new Command("close", "close a feature request",
 				GameState.getAllStates()) {
 			@Override
 			public void run() {
 				if (args.isEmpty()) {
-					printUsage(event.getChannel(), "feat delete [id]");
+					printUsage(event.getChannel(), "feat close [id]");
 					return;
 				}
 				Integer id = null;
@@ -474,22 +526,29 @@ public class WatchWordBot implements SlackMessagePostedListener {
 					return;
 				}
 
-				Session hibernateSession = createHibernateSession();
 				try {
-					hibernateSession.beginTransaction();
-					UserFeatureRequest request = hibernateSession.find(
-							UserFeatureRequest.class, id);
-					if (request == null) {
+					List<GHIssue> issues = GitHubHelper
+							.getSlackIssues(getGHRepo().get());
+
+					GHIssue foundIssue = null;
+					for (GHIssue issue : issues) {
+						if (issue.getNumber() == id) {
+							foundIssue = issue;
+							break;
+						}
+					}
+					if (foundIssue == null) {
 						session.sendMessage(event.getChannel(),
 								"Could not find feature with id " + id);
 						return;
 					}
-					hibernateSession.delete(request);
-					hibernateSession.getTransaction().commit();
-					session.sendMessage(event.getChannel(), "Deleted "
-							+ printUserFeedbackRequest(request));
-				} finally {
-					closeHibernateSession(hibernateSession);
+
+					GitHubHelper.removeGHIssue(getGHRepo().get(),
+							printFullUserDetails(event.getSender()), id);
+					session.sendMessage(event.getChannel(), "Deleted " + id);
+				} catch (Exception e) {
+					session.sendMessage(event.getChannel(),
+							"Could not delete feature with id " + id);
 				}
 			}
 		});
@@ -512,6 +571,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(event.getChannel(), featureSubcommandHelp);
 		}
 
+	}
+
+	private static String printFullUserDetails(SlackUser user) {
+		return user.getUserName() + " (" + user.getRealName() + ")";
 	}
 
 	private void defineCommand(SlackMessagePosted event,
@@ -1119,24 +1182,30 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		String word = args.pop();
 		String unparsedNumber = args.pop();
-		int totalGuesses = 0;
+		int totalGuesses = -1;
+		boolean unlimitedGuesses = false;
+		boolean zeroClue = false;
+
 		if (unparsedNumber.toLowerCase().startsWith("unlimited")) {
-			totalGuesses = 1000000;
+			unlimitedGuesses = true;
 		} else {
 			try {
 				totalGuesses = Integer.parseInt(unparsedNumber);
+				if (totalGuesses == 0) {
+					zeroClue = true;
+				} else if (totalGuesses < 0) {
+					session.sendMessage(event.getChannel(),
+							"You must give a clue with at least one guess!");
+					return;
+				}
+				totalGuesses += 1;// bonus guess
+
 			} catch (Exception e) {
 				session.sendMessage(event.getChannel(), "Could not parse '"
 						+ unparsedNumber + "' as a number.");
 				return;
 			}
 			;
-		}
-
-		if (totalGuesses < 1) {
-			session.sendMessage(event.getChannel(),
-					"You must give a clue with at least one guess!");
-			return;
 		}
 
 		List<WordTile> tiles = game.getGrid().getTilesForWord(word);
@@ -1146,8 +1215,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return;
 		}
 
-		totalGuesses = totalGuesses + 1;// include bonus
-		game.giveClue(new WatchWordClue(word, totalGuesses));
+		game.giveClue(new WatchWordClue(word, totalGuesses, unlimitedGuesses,
+				zeroClue));
 		session.sendMessage(getCurrentChannel(),
 				getUsernameString(event.getSender()) + " has given a clue.");
 		session.sendMessage(getCurrentChannel(), printGivenClue());
@@ -1444,9 +1513,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (game.wasClueGivenThisTurn()) {
 			String out = "Current clue: *" + game.getClue().getWord()
 					+ "*, guesses remaining: ";
-			out += "*" + (game.getRemainingGuesses() - 1) + "*";
-			if (game.getRemainingGuesses() == 1) {
-				out += " (Bonus Guess)";
+			if (game.getClue().isUnlimited()) {
+				out += "*Unlimited*";
+			} else if (game.getClue().isZero()) {
+				out += "*Zero*";
+			} else {
+				out += "*" + (game.getRemainingGuesses() - 1) + "*";
+				if (game.getRemainingGuesses() == 1) {
+					out += " (Bonus Guess)";
+				}
 			}
 			return out;
 		} else {
@@ -1537,6 +1612,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private void finishGame(List<Faction> victors, SlackSession session) {
+		String finalCardGrid = printCardGrid(true);
+		session.sendMessage(getCurrentChannel(), "Final Card Grid:\n"
+				+ finalCardGrid);
+
 		String victorString = "";
 		for (Faction victor : victors) {
 			String singleVictorString = "Game over!  " + victor.getName()

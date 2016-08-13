@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.internal.util.config.ConfigurationHelper;
+import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GitHub;
 
 public class Runner {
 
@@ -18,13 +20,34 @@ public class Runner {
 		}
 
 		Optional<SessionFactory> sessionFactory = readSessionFactory();
+		Optional<GHRepository> ghRepo = readGHRepo();
 
-		WatchWordBot bot = new WatchWordBot(args[0], sessionFactory);
+		WatchWordBot bot = new WatchWordBot(args[0], sessionFactory, ghRepo);
 		try {
 			bot.loadWordList();
 			bot.connect();
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	public static Optional<GHRepository> readGHRepo() {
+		try {
+			GitHub github = GitHub.connect();
+			String desiredRepo = System.getProperty("GITHUB_REPOSITORY");
+			System.out.println("Desired Repo:" + desiredRepo);
+			GHRepository repo = github.getRepository(desiredRepo);
+			return Optional.of(repo);
+		} catch (Exception e) {
+			for (Object o : System.getProperties().keySet()) {
+				System.out.println(o + ":" + System.getProperty(o + ""));
+			}
+
+			for (String env : System.getenv().keySet()) {
+				System.out.println(env + ":" + System.getenv(env));
+			}
+			e.printStackTrace();
+			return Optional.empty();
 		}
 	}
 
