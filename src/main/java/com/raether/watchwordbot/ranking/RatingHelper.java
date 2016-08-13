@@ -29,7 +29,8 @@ public class RatingHelper {
 		return GameInfo.getDefaultGameInfo();
 	}
 
-	public static void addDefaultRatingToUser(UserEntity entity, Session session) {
+	public static void addDefaultRatingToUserIfUnset(UserEntity entity,
+			Session session) {
 		if (entity.getClueGiverRating() == null) {
 			entity.setClueGiverRating(new RatingValue(getGameInfo()
 					.getDefaultRating()));
@@ -123,6 +124,19 @@ public class RatingHelper {
 			}
 		}
 		return team;
+	}
+
+	public static Rating getRatingForUser(SlackUser user, boolean isLeader,
+			Session session) {
+		UserEntity entity = UserHelper.readOrCreateUserEntity(user.getId(),
+				user.getUserName(), session);
+		addDefaultRatingToUserIfUnset(entity, session);
+		session.saveOrUpdate(entity);
+		if (isLeader) {
+			return entity.getClueGiverRating().createRating();
+		} else {
+			return entity.getGuesserRating().createRating();
+		}
 	}
 
 	public static double getMatchQuality(TurnOrder turnOrder,

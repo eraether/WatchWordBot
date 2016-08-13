@@ -21,6 +21,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import jskills.Rating;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
@@ -40,6 +42,7 @@ import com.raether.watchwordbot.meatsim.PotentialGuessRow;
 import com.raether.watchwordbot.message.DefaultMessageGenerator;
 import com.raether.watchwordbot.message.MessageGenerator;
 import com.raether.watchwordbot.ranking.RatingHelper;
+import com.raether.watchwordbot.ranking.RatingPrinter;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
@@ -1048,17 +1051,22 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			if (pickedAssassin) {
 				session.sendMessage(getCurrentChannel(),
-						messageGenerator.getAssassinPickMessage() + " " + getUsernameString(eventUser)
+						messageGenerator.getAssassinPickMessage() + " "
+								+ getUsernameString(eventUser)
 								+ " has picked the assassin!  "
 								+ guesserFaction.getName() + " loses!");
 			} else if (pickedOwnCard) {
-				session.sendMessage(getCurrentChannel(), messageGenerator.getCorrectPickMessage() + " "
-						+ getUsernameString(eventUser)
-						+ " has picked correctly.");
+				session.sendMessage(getCurrentChannel(),
+						messageGenerator.getCorrectPickMessage() + " "
+								+ getUsernameString(eventUser)
+								+ " has picked correctly.");
 			} else {
-				session.sendMessage(getCurrentChannel(), messageGenerator.getIncorrectPickMessage() + " "
-						+ getUsernameString(eventUser) + " has picked a *"
-						+ guessedTile.getFaction().getName() + "* card.");
+				session.sendMessage(getCurrentChannel(),
+						messageGenerator.getIncorrectPickMessage() + " "
+								+ getUsernameString(eventUser)
+								+ " has picked a *"
+								+ guessedTile.getFaction().getName()
+								+ "* card.");
 			}
 
 			if (victor != null) {
@@ -1239,7 +1247,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		currentGameState = GameState.GAME;
-		session.sendMessage(getCurrentChannel(), messageGenerator.getGameStartMessage());
+		session.sendMessage(getCurrentChannel(),
+				messageGenerator.getGameStartMessage());
 		long seed1 = System.nanoTime();
 		Random random1 = new Random(seed1);
 		int totalRows = 5;
@@ -1535,12 +1544,41 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private static String printFactions(WatchWordLobby lobby) {
+	private Rating getUserRating(SlackUser user, boolean isLeader) {
+		if (!this.getSessionFactory().isPresent()) {
+			return null;
+		}
+		Rating rating = null;
+		Session session = null;
+		try {
+			session = getSessionFactory().get().openSession();
+			session.beginTransaction();
+			rating = RatingHelper.getRatingForUser(user, isLeader, session);
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (session != null) {
+				session.close();
+			}
+		}
+		return rating;
+	}
+
+	private String printFactions(WatchWordLobby lobby) {
 		String out = "Here are the teams:\n";
 		for (Faction faction : lobby.getTurnOrder().getAllFactions()) {
 			String factionString = "[*" + faction.getName() + " team*]\n";
 			for (Player player : faction.getAllPlayers()) {
 				factionString += getUsernameString(lobby.getUser(player));
+
+				String printedRating = RatingPrinter.printRating(getUserRating(
+						lobby.getUser(player), faction.isLeader(player)));
+				System.out.println(printedRating);
+				if (printedRating != null) {
+					factionString += " " + printedRating;
+				}
+
 				if (faction.isLeader(player)) {
 					factionString += " (Leader)";
 				}
@@ -1621,8 +1659,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		String victorString = "";
 		for (Faction victor : victors) {
-			String singleVictorString = messageGenerator.getWinMessage() + "  " + victor.getName()
-					+ " has won!  Congratulations to:\n";
+			String singleVictorString = messageGenerator.getWinMessage() + "  "
+					+ victor.getName() + " has won!  Congratulations to:\n";
 			for (Player player : victor.getAllPlayers()) {
 				singleVictorString += getUsernameString(getWatchWordLobby()
 						.getUser(player)) + "\n";

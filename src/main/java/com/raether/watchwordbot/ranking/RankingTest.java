@@ -16,6 +16,11 @@ public class RankingTest {
 	private final static double ErrorTolerance = 0.085;
 
 	public static void main(String[] args) {
+		System.out.println(RatingPrinter.printRating(new Rating(190, 0)));
+
+		if (true) {
+			return;
+		}
 		TwoTeamTrueSkillCalculator calculator = new TwoTeamTrueSkillCalculator();
 		Player<Integer> player1 = new Player<Integer>(1);
 		Player<Integer> player2 = new Player<Integer>(2);

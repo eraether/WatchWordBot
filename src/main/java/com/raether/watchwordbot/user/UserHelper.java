@@ -14,7 +14,7 @@ public class UserHelper {
 			entity.setUsername(username);
 		}
 		if (entity.getGuesserRating() == null) {
-			RatingHelper.addDefaultRatingToUser(entity, session);
+			RatingHelper.addDefaultRatingToUserIfUnset(entity, session);
 		}
 		return entity;
 	}
