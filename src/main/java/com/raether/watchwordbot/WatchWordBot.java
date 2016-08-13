@@ -68,6 +68,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private WatchWordLobby watchWordLobby;
 	private WatchWordGame game;
 	private List<String> wordList = null;
+	private List<String> banishedWordList = new ArrayList<String>();
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
 	private static Boolean DEBUG = Boolean.FALSE;
@@ -1235,6 +1236,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		waitForGuess();
 	}
 
+	private void refreshGameResources() {
+		refreshBanishedWordList();
+	}
+
+	private void refreshBanishedWordList() {
+	}
+
 	private void startCommand(SlackMessagePosted event,
 			LinkedList<String> args, SlackSession session) {
 
@@ -1246,6 +1254,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		}
 
+		refreshGameResources();
 		currentGameState = GameState.GAME;
 		session.sendMessage(getCurrentChannel(),
 				messageGenerator.getGameStartMessage());
@@ -1253,8 +1262,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		Random random1 = new Random(seed1);
 		int totalRows = 5;
 		int totalCols = 5;
-		List<String> words = generateWords(wordList, totalRows * totalCols,
-				random1);
+		List<String> words = generateWords(wordList, banishedWordList,
+				totalRows * totalCols, random1);
 
 		BuildableWatchWordGrid buildableGrid = new BuildableWatchWordGrid(
 				words, totalRows, totalCols);
@@ -1749,10 +1758,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private static List<String> generateWords(List<String> wordList,
-			int amount, Random rand) {
+			List<String> banishedWordList, int amount, Random rand) {
 		Set<String> words = new HashSet<String>();
 		while (words.size() < amount) {
 			words.add(getWatchWord(wordList, rand));
+			words.removeAll(banishedWordList);
 		}
 		List<String> outputWords = new ArrayList<String>();
 		outputWords.addAll(words);
