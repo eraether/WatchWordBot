@@ -1329,12 +1329,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void waitForClue() {
 		stopAllAIThreads();
-		this.game.startCountingDown(5, TimeUnit.MINUTES);
+		this.game.startCountingDown(4, TimeUnit.MINUTES);
 	}
 
 	private void waitForGuess() {
 		stopAllAIThreads();
-		this.game.startCountingDown(3, TimeUnit.MINUTES);
+		this.game.startCountingDown(2, TimeUnit.MINUTES);
 		handleAIGuesses();
 	}
 
