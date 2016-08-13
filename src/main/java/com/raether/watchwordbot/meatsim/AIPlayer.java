@@ -91,9 +91,12 @@ public class AIPlayer {
 						unrevealedWords.toArray(new String[] {}));
 		log("Completed negative similarity matrix");
 
+		int maxPositiveGuessHistory = 1;
+		int maxNegativeGuessHistory = 0;
+
 		List<PotentialGuess> allPotentialGuesses = new ArrayList<PotentialGuess>();
-		for (int currentWordIndex = 0; currentWordIndex < unrevealedWords
-				.size(); currentWordIndex++) {
+		for (int currentWordIndex = 0; currentWordIndex < Math.max(
+				unrevealedWords.size(), maxPositiveGuessHistory); currentWordIndex++) {
 			String currentWord = unrevealedWords.get(currentWordIndex);
 			List<PotentialGuessRow> positiveGuessRows = new ArrayList<PotentialGuessRow>();
 			for (int currentPositiveClueIndex = 0; currentPositiveClueIndex < positiveClues
@@ -108,8 +111,8 @@ public class AIPlayer {
 			}
 
 			List<PotentialGuessRow> negativeGuessRows = new ArrayList<PotentialGuessRow>();
-			for (int currentNegativeClueIndex = 0; currentNegativeClueIndex < negativeClues
-					.size(); currentNegativeClueIndex++) {
+			for (int currentNegativeClueIndex = 0; currentNegativeClueIndex < Math
+					.max(negativeClues.size(), maxNegativeGuessHistory); currentNegativeClueIndex++) {
 				String currentClue = negativeClues
 						.get(currentNegativeClueIndex);
 				double computedConfidence = similarityMatrixNegative[currentNegativeClueIndex][currentWordIndex];
