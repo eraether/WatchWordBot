@@ -754,9 +754,19 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void cancelCommand(SlackMessagePosted event,
 			LinkedList<String> args, SlackSession session) {
-		session.sendMessage(getCurrentChannel(), "Game has been canceled by "
-				+ getUsernameString(event.getSender()));
-		resetGame();
+		if (currentGameState == GameState.GAME) {
+			session.sendMessage(
+					getCurrentChannel(),
+					"Game has been canceled by "
+							+ getUsernameString(event.getSender()));
+			partialGameReset();
+		} else {
+			session.sendMessage(
+					getCurrentChannel(),
+					"Lobby has been canceled by "
+							+ getUsernameString(event.getSender()));
+			fullGameReset();
+		}
 	}
 
 	private void syncCommand(SlackMessagePosted event, LinkedList<String> args,
@@ -1751,7 +1761,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		this.game = null;
 	}
 
-	private void resetGame() {
+	private void fullGameReset() {
 		partialGameReset();
 		this.currentGameState = GameState.IDLE;
 		this.watchWordLobby = null;
