@@ -72,6 +72,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
 	private static Boolean DEBUG = Boolean.FALSE;
+	private Long lastIssuedCommandTime = null;
 
 	// add-ons
 	private Optional<SessionFactory> sessionFactory;
@@ -192,6 +193,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private synchronized void handleCommand(SlackMessagePosted event,
 			SlackSession session) {
+		updateLastIssuedCommandTime();
 		LinkedList<String> args = new LinkedList<String>();
 		args.addAll(Arrays.asList(event.getMessageContent().split("\\s+")));// event.getMessageContent().split(" ");
 
@@ -1845,6 +1847,35 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void onHeartBeat(SlackSession session) {
 		handleCompetitiveTimer(session);
+		checkForAbandonedGame(session);
+	}
+
+	protected void checkForAbandonedGame(SlackSession session) {
+		if (this.currentGameState == GameState.IDLE) {
+			return;
+		}
+
+		// more than an hour has elapsed since anyone has issued any commands...
+		if (getCurrentTime(TimeUnit.MINUTES)
+				- getLastIssuedCommandTime(TimeUnit.MINUTES) >= 60) {
+			fullGameReset();
+		}
+	}
+
+	protected long getCurrentTime(TimeUnit unit) {
+		return unit.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+	}
+
+	protected Long getLastIssuedCommandTime(TimeUnit unit) {
+		if (lastIssuedCommandTime == null) {
+			return null;
+		}
+
+		return unit.convert(lastIssuedCommandTime, TimeUnit.MILLISECONDS);
+	}
+
+	protected void updateLastIssuedCommandTime() {
+		this.lastIssuedCommandTime = getCurrentTime(TimeUnit.MILLISECONDS);
 	}
 
 	protected void handleCompetitiveTimer(SlackSession session) {
