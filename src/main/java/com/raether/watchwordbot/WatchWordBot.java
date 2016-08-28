@@ -294,15 +294,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		});
 
-		commands.add(new Command("add",
-				"add the specified players to the game.", GameState.LOBBY,
-				GameState.GAME) {
-			@Override
-			public void run() {
-				addCommand(event, args, session);
-			}
-		});
-
 		commands.add(new Command("time", "shows the remaining time",
 				GameState.GAME) {
 			@Override
@@ -875,35 +866,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	}
 
-	private void addCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		if (args.isEmpty()) {
-			printUsage(event.getChannel(), "add <player1, player2, ...>");
-			return;
-		}
-		while (!args.isEmpty()) {
-			String username = args.pop();
-			SlackUser user = findUserByUsername(username, session.getUsers());
-			if (user != null) {
-				if (!getWatchWordLobby().hasUser(user)) {
-					getWatchWordLobby().addUser(user);
-					session.sendMessage(getCurrentChannel(), event.getSender()
-							.getUserName()
-							+ " added "
-							+ getUsernameString(user));
-				} else {
-					session.sendMessage(event.getChannel(),
-							getUsernameString(user)
-									+ " is already in the game!");
-				}
-			} else {
-				session.sendMessage(event.getChannel(),
-						"Could not find user with username '" + username + "'.");
-			}
-		}
-		session.sendMessage(getCurrentChannel(),
-				printFactions(getWatchWordLobby()));
-	}
 
 	private void timeCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {
