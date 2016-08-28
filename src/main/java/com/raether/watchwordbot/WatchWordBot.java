@@ -199,17 +199,18 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		List<Command> commands = generateCommands(event, args, session);
 
-		Command matchingCommand = findMatchingCommand(commandText, commands,
-				event.getChannel());
+		Command matchingCommand = findMatchingCommand(commandText, args,
+				commands, event.getChannel());
 		if (matchingCommand != null) {
 			matchingCommand.run();
 		}
 	}
 
 	protected Command findMatchingCommand(String commandText,
-			Collection<Command> commands, SlackChannel channel) {
+			List<String> args, Collection<Command> commands,
+			SlackChannel channel) {
 		for (Command command : commands) {
-			if (command.matches(commandText)) {
+			if (command.matches(commandText, args)) {
 				if (!isGameCurrentlyInValidGameState(channel,
 						command.getValidGameStates())) {
 					return null;
@@ -268,8 +269,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		commands.add(new Command("grid", Arrays.asList("board"),
 				"show the WatchWords grid", false, GameState.GAME) {
 			@Override
-			public boolean matches(String command) {
-				return super.matches(command) || command.matches("g+r+i+d+");
+			public boolean matches(String command, List<String> args) {
+				return super.matches(command, args)
+						|| command.matches("g+r+i+d+");
 			}
 
 			@Override
@@ -315,6 +317,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			@Override
 			public void run() {
 				startCommand(event, args, session);
+			}
+
+			@Override
+			public boolean matches(String command, List<String> args) {
+				return super.matches(command, args)
+						|| (command.equals("game") && args.size() == 1 && args
+								.get(0).equals("on"));
 			}
 		});
 
@@ -561,8 +570,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		String commandText = args.pop();
-		Command command = this.findMatchingCommand(commandText, featCommands,
-				event.getChannel());
+		Command command = this.findMatchingCommand(commandText, args,
+				featCommands, event.getChannel());
 		if (command != null) {
 			command.run();
 		} else {
@@ -865,7 +874,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				printFactions(getWatchWordLobby()));
 
 	}
-
 
 	private void timeCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {

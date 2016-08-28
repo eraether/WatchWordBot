@@ -57,7 +57,7 @@ public abstract class Command {
 		return this.validGameStates;
 	}
 
-	public boolean matches(String commandText) {
+	public boolean matches(String commandText, List<String> arguments) {
 		for (String alias : getAllAliases()) {
 			if (alias.equalsIgnoreCase(commandText)) {
 				return true;
