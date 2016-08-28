@@ -1844,6 +1844,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private void onHeartBeat(SlackSession session) {
+		handleCompetitiveTimer(session);
+	}
+
+	protected void handleCompetitiveTimer(SlackSession session) {
+
 		if (this.game != null && game.getActingFaction() != null) {
 			CompetitiveTime time = game.getRemainingTime();
 			if (time == null) {
@@ -1858,12 +1863,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				finishGame(Arrays.asList(game.getTurnOrder().getNextTurn()),
 						session);
 			} else if (totalTime % 60 == 0) {
-				session.sendMessage(getCurrentChannel(), game
-						.getActingFaction().getName()
-						+ " team, you have "
-						+ time.getTime(TimeUnit.MINUTES)
-						+ " min remaining ("
-						+ time.getOvertime(TimeUnit.MINUTES) + " min overtime)");
+
+				session.sendMessage(
+						getCurrentChannel(),
+						game.getActingFaction().getName()
+								+ " team, you have "
+								+ printTime(time.getTime(TimeUnit.SECONDS),
+										TimeUnit.SECONDS)
+								+ " remaining ("
+								+ printTime(time.getOvertime(TimeUnit.SECONDS),
+										TimeUnit.SECONDS) + " overtime)");
 			} else if (totalTime < 60 && totalTime % 5 == 0) {
 				session.sendMessage(getCurrentChannel(), game
 						.getActingFaction().getName()
@@ -1872,6 +1881,14 @@ public class WatchWordBot implements SlackMessagePostedListener {
 						+ " secs. remaining!");
 			}
 		}
+	}
+
+	private String printTime(long time, TimeUnit sourceUnit) {
+		long minutes = TimeUnit.MINUTES.convert(time, sourceUnit);
+		long seconds = TimeUnit.SECONDS.convert(time, sourceUnit) - minutes
+				* 60;
+
+		return "" + minutes + "m " + seconds + "s";
 	}
 }
 
