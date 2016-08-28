@@ -1582,8 +1582,6 @@ mountain
 mourning
 mouse
 mouth
-move
-movement
 mud
 mug
 multimedia
