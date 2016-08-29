@@ -99,4 +99,8 @@ public class Faction {
 	public boolean hasTimer() {
 		return getTimer() != null;
 	}
+
+	public boolean hasPlayer(Player player) {
+		return getAllPlayers().contains(player);
+	}
 }

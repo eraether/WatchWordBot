@@ -12,6 +12,7 @@ public class WatchWordGame {
 	private Faction neutralFaction;
 	private Faction assassinFaction;
 	private WatchWordClue currentClue;
+	private ELOBoosterTracker eloBoosterTracker;
 
 	private Map<Faction, List<WatchWordClue>> cluesForFaction = new HashMap<Faction, List<WatchWordClue>>();
 
@@ -24,6 +25,11 @@ public class WatchWordGame {
 		this.turnOrder = playerFactions;
 		this.neutralFaction = neutralFaction;
 		this.assassinFaction = assassinFaction;
+		eloBoosterTracker = new ELOBoosterTracker();
+	}
+
+	public ELOBoosterTracker getELOBoosterTracker() {
+		return this.eloBoosterTracker;
 	}
 
 	public WatchWordGrid getGrid() {

@@ -15,6 +15,7 @@ import jskills.trueskill.FactorGraphTrueSkillCalculator;
 import org.apache.commons.lang3.ArrayUtils;
 import org.hibernate.Session;
 
+import com.raether.watchwordbot.ELOBoosterTracker;
 import com.raether.watchwordbot.Faction;
 import com.raether.watchwordbot.Player;
 import com.raether.watchwordbot.TurnOrder;
@@ -44,7 +45,8 @@ public class RatingHelper {
 	}
 
 	public static void updatePlayerRatings(List<Faction> victors,
-			List<Faction> losers, WatchWordLobby lobby, Session session) {
+			List<Faction> losers, WatchWordLobby lobby,
+			ELOBoosterTracker tracker, Session session) {
 		List<Faction> allFactions = new ArrayList<Faction>();
 		allFactions.addAll(victors);
 		allFactions.addAll(losers);
@@ -57,11 +59,11 @@ public class RatingHelper {
 		final int LOSER = 2;
 
 		for (Faction victor : victors) {
-			teams.add(buildITeam(victor, gameInfo, lobby, session));
+			teams.add(buildITeam(victor, gameInfo, lobby, tracker, session));
 			rankings.add(WINNER);
 		}
 		for (Faction loser : losers) {
-			teams.add(buildITeam(loser, gameInfo, lobby, session));
+			teams.add(buildITeam(loser, gameInfo, lobby, tracker, session));
 			rankings.add(LOSER);
 		}
 
@@ -103,10 +105,20 @@ public class RatingHelper {
 
 	private static ITeam buildITeam(Faction faction, GameInfo info,
 			WatchWordLobby lobby, Session session) {
+		return buildITeam(faction, info, lobby, null, session);
+	}
+
+	private static ITeam buildITeam(Faction faction, GameInfo info,
+			WatchWordLobby lobby, ELOBoosterTracker tracker, Session session) {
 
 		Team team = new Team();
 
-		for (Player player : faction.getAllPlayers()) {
+		List<Player> coreParticipants = faction.getAllPlayers();
+		if (tracker != null) {
+			coreParticipants = tracker.getCoreParticipantsFor(faction);
+		}
+
+		for (Player player : coreParticipants) {
 			SlackUser user = lobby.getUser(player);
 
 			String slackId = user.getId();

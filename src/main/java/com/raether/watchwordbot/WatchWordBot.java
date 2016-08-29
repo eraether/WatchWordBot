@@ -205,7 +205,53 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				commands, event.getChannel());
 		if (matchingCommand != null) {
 			matchingCommand.run();
+		} else {
+			handlePlainTextMessage(event, session);
 		}
+	}
+
+	private void handlePlainTextMessage(SlackMessagePosted event,
+			SlackSession session) {
+		addGuesseePointActivityForMessage(event.getSender());
+	}
+
+	private void addGuesseePointActivityForMessage(SlackUser user) {
+		if (getWatchWordLobby() == null) {
+			return;
+		}
+
+		Player player = getWatchWordLobby().getPlayer(user);
+		if (player == null) {
+			return;
+		}
+
+		Faction faction = getWatchWordLobby().getTurnOrder().getFactionFor(
+				player);
+		if (faction == null) {
+			return;
+		}
+		if (faction.getLeader() != player) {
+			recordELOEvent(ELOEvent.GUESSER_SENT_PLAINTEXT_MESSAGE, player);
+		}
+	}
+
+	private void recordELOEvent(ELOEvent event, Player player) {
+		if (getGame() == null) {
+			return;
+		}
+
+		if (player == null || event == null) {
+			return;
+		}
+
+		Faction faction = getWatchWordLobby().getTurnOrder().getFactionFor(
+				player);
+		if (faction == null) {
+			return;
+		}
+
+		getGame().getELOBoosterTracker().addWeightedAction(event, player,
+				faction);
 	}
 
 	protected Command findMatchingCommand(String commandText,
@@ -663,6 +709,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (addedBots) {
 			session.sendMessage(getCurrentChannel(),
 					printFactions(getWatchWordLobby()));
+			printMatchQuality();
 			if (!isAIThreadRunning()) {
 				handleAIGuesses();
 			}
@@ -805,6 +852,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 							+ " has joined the game!");
 			session.sendMessage(getCurrentChannel(),
 					printFactions(getWatchWordLobby()));
+			printMatchQuality();
 
 		} else {
 			session.sendMessage(event.getChannel(),
@@ -921,6 +969,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 		session.sendMessage(watchWordLobby.getChannel(),
 				printFactions(getWatchWordLobby()));
+		printMatchQuality();
 	}
 
 	private void guessCommand(SlackMessagePosted event,
@@ -1000,6 +1049,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 			game.guess();
 			guessedTile.setRevealed(true);
+
+			recordELOEvent(ELOEvent.CLUE_GUESSED, guesser);
 
 			Faction victor = null;
 			boolean pickedAssassin = false;
@@ -1213,6 +1264,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		game.giveClue(new WatchWordClue(word, totalGuesses, unlimitedGuesses,
 				zeroClue));
+
+		recordELOEvent(ELOEvent.CLUE_GIVEN, player);
 		session.sendMessage(getCurrentChannel(),
 				getUsernameString(event.getSender()) + " has given a clue.");
 		session.sendMessage(getCurrentChannel(), printGivenClue());
@@ -1654,19 +1707,20 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		for (Faction victor : victors) {
 			String singleVictorString = messageGenerator.getWinMessage() + "  "
 					+ victor.getName() + " has won!  Congratulations to:\n";
-			for (Player player : victor.getAllPlayers()) {
+			List<Player> participatingPlayers = getGame()
+					.getELOBoosterTracker().getCoreParticipantsFor(victor);
+			for (Player player : participatingPlayers) {
 				singleVictorString += getUsernameString(getWatchWordLobby()
 						.getUser(player)) + "\n";
 			}
 			victorString += singleVictorString + "\n";
-
 		}
 		session.sendMessage(getCurrentChannel(), victorString);
 
 		ArrayList<Faction> losers = new ArrayList<Faction>(game.getTurnOrder()
 				.getAllFactions());
 		losers.removeAll(victors);
-		updateRankings(victors, losers);
+		updateRankings(victors, losers, game.getELOBoosterTracker());
 
 		partialGameReset();
 		getWatchWordLobby().getTurnOrder().shuffleFactionLeaders();
@@ -1707,7 +1761,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private void updateRankings(List<Faction> victors, List<Faction> losers) {
+	private void updateRankings(List<Faction> victors, List<Faction> losers, ELOBoosterTracker eloBoosterTracker) {
 		if (!this.getSessionFactory().isPresent()) {
 			System.out
 					.println("No link to any storage available...  Not writing results.");
@@ -1718,7 +1772,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session = getSessionFactory().get().openSession();
 			session.beginTransaction();
 			RatingHelper.updatePlayerRatings(victors, losers,
-					getWatchWordLobby(), session);
+					getWatchWordLobby(), eloBoosterTracker, session);
 			session.getTransaction().commit();
 		} catch (Exception e) {
 			e.printStackTrace();
