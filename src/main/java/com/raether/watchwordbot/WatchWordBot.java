@@ -197,14 +197,20 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		LinkedList<String> args = new LinkedList<String>();
 		args.addAll(Arrays.asList(event.getMessageContent().split("\\s+")));// event.getMessageContent().split(" ");
 
-		String commandText = args.pop().toLowerCase();
+		boolean matchingPrefix = true;
+		if (DEBUG) {
+			String debugPrefix = args.pop().toLowerCase();
+			matchingPrefix = debugPrefix.equals("d");
+		}
 
-		List<Command> commands = generateCommands(event, args, session);
-
-		Command matchingCommand = findMatchingCommand(commandText, args,
-				commands, event.getChannel());
-		if (matchingCommand != null) {
-			matchingCommand.run();
+		if (matchingPrefix) {
+			String commandText = args.pop().toLowerCase();
+			List<Command> commands = generateCommands(event, args, session);
+			Command matchingCommand = findMatchingCommand(commandText, args,
+					commands, event.getChannel());
+			if (matchingCommand != null) {
+				matchingCommand.run();
+			}
 		} else {
 			handlePlainTextMessage(event, session);
 		}
@@ -1761,7 +1767,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private void updateRankings(List<Faction> victors, List<Faction> losers, ELOBoosterTracker eloBoosterTracker) {
+	private void updateRankings(List<Faction> victors, List<Faction> losers,
+			ELOBoosterTracker eloBoosterTracker) {
 		if (!this.getSessionFactory().isPresent()) {
 			System.out
 					.println("No link to any storage available...  Not writing results.");
