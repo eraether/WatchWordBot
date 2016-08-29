@@ -67,8 +67,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private GameState currentGameState = GameState.IDLE;
 	private WatchWordLobby watchWordLobby;
 	private WatchWordGame game;
-	private List<String> wordList = null;
-	private List<String> banishedWordList = new ArrayList<String>();
+	private WordGenerator wordGenerator = new WordGenerator();
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
 	private static Boolean DEBUG = Boolean.FALSE;
@@ -83,6 +82,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		setAPIKey(apiKey);
 		setSessionFactory(sessionFactory);
 		setGHRepo(repo);
+	}
+
+	public void loadResources() throws IOException {
+		wordGenerator.loadWordList();
 	}
 
 	private void setGHRepo(Optional<GHRepository> repo) {
@@ -107,25 +110,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private String getAPIKey() {
 		return this.apiKey;
-	}
-
-	public void loadWordList() throws IOException {
-		InputStream in = Thread.currentThread().getContextClassLoader()
-				.getResourceAsStream("wordlist.txt");
-		System.out.println(in);
-		List<String> words = IOUtils.readLines(in, "UTF-8");
-		System.out.println(words.size());
-		Set<String> uniqueWords = new TreeSet<String>();
-		uniqueWords.addAll(words);
-		wordList = new ArrayList<String>();
-		for (String uniqueWord : uniqueWords) {
-			String formattedUniqueWord = uniqueWord.replaceAll("[\\s]+", "_");
-			if (!formattedUniqueWord.equals(uniqueWord)) {
-				System.out.println("Transformed " + uniqueWord + "=>"
-						+ formattedUniqueWord);
-			}
-			wordList.add(formattedUniqueWord);
-		}
 	}
 
 	public void connect() throws IOException {
@@ -222,16 +206,16 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	}
 
 	private void addGuesseePointActivityForMessage(SlackUser user) {
-		if (getWatchWordLobby() == null) {
+		if (getLobby() == null) {
 			return;
 		}
 
-		Player player = getWatchWordLobby().getPlayer(user);
+		Player player = getLobby().getPlayer(user);
 		if (player == null) {
 			return;
 		}
 
-		Faction faction = getWatchWordLobby().getTurnOrder().getFactionFor(
+		Faction faction = getLobby().getTurnOrder().getFactionFor(
 				player);
 		if (faction == null) {
 			return;
@@ -250,7 +234,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return;
 		}
 
-		Faction faction = getWatchWordLobby().getTurnOrder().getFactionFor(
+		Faction faction = getLobby().getTurnOrder().getFactionFor(
 				player);
 		if (faction == null) {
 			return;
@@ -458,13 +442,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		String banishedWord = args.pop();
 
-		boolean match = false;
-		for (String word : wordList) {
-			if (word.equalsIgnoreCase(banishedWord)) {
-				match = true;
-				break;
-			}
-		}
+		boolean match = wordGenerator.isWordPresent(banishedWord);
 
 		if (!match) {
 			session.sendMessage(event.getChannel(), "'" + banishedWord
@@ -689,7 +667,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		boolean addedBots = false;
 		for (int addedBotCount = 0; addedBotCount < numberOfBots; addedBotCount++) {
 			int maxAIPlayers = 4;
-			int totalAIPlayers = this.getWatchWordLobby().getAIPlayerCount();
+			int totalAIPlayers = this.getLobby().getAIPlayerCount();
 			if (totalAIPlayers >= maxAIPlayers) {
 				session.sendMessage(event.getChannel(),
 						"Can't add any more bots!  You have reached the bot limit ("
@@ -706,7 +684,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			AISlackPlayer slackPlayer = new AISlackPlayer("Sim"
 					+ (totalAIPlayers + 1));
 			Player aiPlayer = new Player(true);
-			getWatchWordLobby().addUser(slackPlayer, aiPlayer);
+			getLobby().addUser(slackPlayer, aiPlayer);
 			addedBots = true;
 			session.sendMessage(getCurrentChannel(),
 					getUsernameString(slackPlayer) + " has joined the game!");
@@ -714,7 +692,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 		if (addedBots) {
 			session.sendMessage(getCurrentChannel(),
-					printFactions(getWatchWordLobby()));
+					printFactions(getLobby()));
 			printMatchQuality();
 			if (!isAIThreadRunning()) {
 				handleAIGuesses();
@@ -775,8 +753,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		boolean validStart = false;
 		Set<SlackUser> users = new HashSet<SlackUser>();
-		SlackUser lobbyStarter = findUserByUsername(event.getSender().getId(),
-				watchWordLobby.getChannel().getMembers());
+		SlackUser lobbyStarter = getLobby()
+				.findUserByUsernameInChannel(event.getSender().getUserName());
 		if (lobbyStarter != null) {
 			users.add(lobbyStarter);
 		}
@@ -803,7 +781,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session.sendMessage(getCurrentChannel(),
 					"Created new WatchWord Lobby!");
 			session.sendMessage(getCurrentChannel(),
-					printFactions(getWatchWordLobby()));
+					printFactions(getLobby()));
 		}
 	}
 
@@ -816,7 +794,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 							+ getUsernameString(event.getSender()));
 			partialGameReset();
 			session.sendMessage(getCurrentChannel(),
-					printFactions(getWatchWordLobby()));
+					printFactions(getLobby()));
 		} else {
 			session.sendMessage(
 					getCurrentChannel(),
@@ -841,7 +819,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private void listCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {
 		session.sendMessage(event.getChannel(),
-				printFactions(getWatchWordLobby()));
+				printFactions(getLobby()));
 	}
 
 	private void gridCommand(SlackMessagePosted event, LinkedList<String> args,
@@ -851,13 +829,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void joinCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {
-		if (!getWatchWordLobby().hasUser(event.getSender())) {
-			getWatchWordLobby().addUser(event.getSender());
+		if (!getLobby().hasUser(event.getSender())) {
+			getLobby().addUser(event.getSender());
 			session.sendMessage(getCurrentChannel(),
 					getUsernameString(event.getSender())
 							+ " has joined the game!");
 			session.sendMessage(getCurrentChannel(),
-					printFactions(getWatchWordLobby()));
+					printFactions(getLobby()));
 			printMatchQuality();
 
 		} else {
@@ -869,19 +847,19 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void swapCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {
-		if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
+		if (getLobby().getPlayer(event.getSender()) == null) {
 			session.sendMessage(event.getChannel(),
 					getUsernameString(event.getSender())
 							+ ", you are currently not in this game!");
 			return;
 		}
 
-		Player player = getWatchWordLobby().getPlayer(event.getSender());
+		Player player = getLobby().getPlayer(event.getSender());
 
 		if (args.isEmpty()) {
-			Faction currentFaction = getWatchWordLobby().getTurnOrder()
+			Faction currentFaction = getLobby().getTurnOrder()
 					.getFactionFor(player);
-			Faction newFaction = getWatchWordLobby().getTurnOrder()
+			Faction newFaction = getLobby().getTurnOrder()
 					.swapFactions(player);
 
 			session.sendMessage(
@@ -893,10 +871,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			SlackUser firstUser = null;
 			SlackUser secondUser = null;
 			if (args.size() == 2) {
-				firstUser = findUserByUsername(args.pop(), getWatchWordLobby()
-						.getUsers());
-				secondUser = findUserByUsername(args.pop(), getWatchWordLobby()
-						.getUsers());
+				firstUser = getLobby().findUserByUsername(args.pop());
+				secondUser = getLobby().findUserByUsername(args.pop());
 			} else {
 				printUsage(
 						event.getChannel(),
@@ -910,8 +886,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				return;
 			}
 
-			Player firstPlayer = getWatchWordLobby().getPlayer(firstUser);
-			Player secondPlayer = getWatchWordLobby().getPlayer(secondUser);
+			Player firstPlayer = getLobby().getPlayer(firstUser);
+			Player secondPlayer = getLobby().getPlayer(secondUser);
 
 			if (firstPlayer == null || secondPlayer == null) {
 				session.sendMessage(event.getChannel(),
@@ -919,7 +895,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				return;
 			}
 
-			getWatchWordLobby().getTurnOrder().swapPlayers(firstPlayer,
+			getLobby().getTurnOrder().swapPlayers(firstPlayer,
 					secondPlayer);
 			session.sendMessage(getCurrentChannel(),
 					getUsernameString(event.getSender()) + " has swapped "
@@ -927,7 +903,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 							+ getUsernameString(secondUser));
 		}
 		session.sendMessage(event.getChannel(),
-				printFactions(getWatchWordLobby()));
+				printFactions(getLobby()));
 
 	}
 
@@ -961,10 +937,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 		while (!args.isEmpty()) {
 			String username = args.pop();
-			SlackUser user = findUserByUsername(username, getWatchWordLobby()
-					.getUsers());
+			SlackUser user = getLobby().findUserByUsername(username);
 			if (user != null) {
-				getWatchWordLobby().removeUser(user);
+				getLobby().removeUser(user);
 				session.sendMessage(getCurrentChannel(), event.getSender()
 						.getUserName() + " removed " + getUsernameString(user));
 			} else {
@@ -974,13 +949,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 		}
 		session.sendMessage(watchWordLobby.getChannel(),
-				printFactions(getWatchWordLobby()));
+				printFactions(getLobby()));
 		printMatchQuality();
 	}
 
 	private void guessCommand(SlackMessagePosted event,
 			LinkedList<String> args, SlackSession session) {
-		if (getWatchWordLobby().getPlayer(event.getSender()) == null) {
+		if (getLobby().getPlayer(event.getSender()) == null) {
 			session.sendMessage(event.getChannel(),
 					getUsernameString(event.getSender())
 							+ ", you are currently not in this game!");
@@ -1016,7 +991,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return;
 		} else {
 			WordTile guessedTile = results.get(0);
-			Player guesser = getWatchWordLobby().getPlayer(eventUser);
+			Player guesser = getLobby().getPlayer(eventUser);
 			Faction guesserFaction = game.getFactionForPlayer(guesser);
 
 			if (this.game.getTurnOrder().getCurrentTurn() != guesserFaction) {
@@ -1147,12 +1122,12 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void endTurn(SlackSession session, SlackChannel eventChannel,
 			SlackUser eventUser) {
-		if (getWatchWordLobby().getPlayer(eventUser) == null) {
+		if (getLobby().getPlayer(eventUser) == null) {
 			session.sendMessage(eventChannel, getUsernameString(eventUser)
 					+ ", you are currently not in this game!");
 			return;
 		}
-		Player guesser = getWatchWordLobby().getPlayer(eventUser);
+		Player guesser = getLobby().getPlayer(eventUser);
 		Faction guesserFaction = game.getFactionForPlayer(guesser);
 
 		if (this.game.getTurnOrder().getCurrentTurn() != guesserFaction) {
@@ -1194,13 +1169,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private void clueCommand(SlackMessagePosted event, LinkedList<String> args,
 			SlackSession session) {
-		Player player = getWatchWordLobby().getPlayer(event.getSender());
+		Player player = getLobby().getPlayer(event.getSender());
 		if (player == null) {
 			session.sendMessage(event.getChannel(), "You are not in the game!");
 			return;
 		}
 
-		if (getWatchWordLobby().getTurnOrder().getFactionFor(player) != game
+		if (getLobby().getTurnOrder().getFactionFor(player) != game
 				.getTurnOrder().getCurrentTurn()) {
 			session.sendMessage(event.getChannel(),
 					"It is not your turn to give a clue!");
@@ -1305,8 +1280,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		Random random1 = new Random(seed1);
 		int totalRows = 5;
 		int totalCols = 5;
-		List<String> words = generateWords(wordList, banishedWordList,
-				totalRows * totalCols, random1);
+		List<String> words = wordGenerator.generateWords(totalRows * totalCols,
+				random1);
 
 		BuildableWatchWordGrid buildableGrid = new BuildableWatchWordGrid(
 				words, totalRows, totalCols);
@@ -1347,10 +1322,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		for (Faction faction : game.getTurnOrder().getAllFactions()) {
 			if (faction.hasLeader() && !faction.getLeader().isAIControlled()) {
-				SlackUser user = getWatchWordLobby().getUser(
+				SlackUser user = getLobby().getUser(
 						faction.getLeader());
 
-				SlackUser opponent = getWatchWordLobby().getUser(
+				SlackUser opponent = getLobby().getUser(
 						game.getTurnOrder().getFactionAfter(faction)
 								.getLeader());
 				try {
@@ -1426,7 +1401,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (aiGuesseeOnCurrentTeam == null) {
 			return;
 		}
-		final SlackUser aiSlackUser = getWatchWordLobby().getUser(
+		final SlackUser aiSlackUser = getLobby().getUser(
 				aiGuesseeOnCurrentTeam);
 		sendMessageToCurrentChannel("The AI (" + getUsernameString(aiSlackUser)
 				+ ") is attempting to guess using your provided clue!");
@@ -1563,7 +1538,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return this.game;
 	}
 
-	public WatchWordLobby getWatchWordLobby() {
+	public WatchWordLobby getLobby() {
 		return this.watchWordLobby;
 	}
 
@@ -1590,7 +1565,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return out;
 		} else {
 			return "A clue has not yet been given.  *"
-					+ getUsernameString(getWatchWordLobby().getUser(
+					+ getUsernameString(getLobby().getUser(
 							game.getTurnOrder().getCurrentTurn().getLeader()))
 					+ "*, please provide a clue.";
 		}
@@ -1716,7 +1691,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			List<Player> participatingPlayers = getGame()
 					.getELOBoosterTracker().getCoreParticipantsFor(victor);
 			for (Player player : participatingPlayers) {
-				singleVictorString += getUsernameString(getWatchWordLobby()
+				singleVictorString += getUsernameString(getLobby()
 						.getUser(player)) + "\n";
 			}
 			victorString += singleVictorString + "\n";
@@ -1729,11 +1704,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		updateRankings(victors, losers, game.getELOBoosterTracker());
 
 		partialGameReset();
-		getWatchWordLobby().getTurnOrder().shuffleFactionLeaders();
+		getLobby().getTurnOrder().shuffleFactionLeaders();
 		getSession().sendMessage(getCurrentChannel(),
 				"\nReturning back to the game lobby...");
 		getSession().sendMessage(getCurrentChannel(),
-				printFactions(getWatchWordLobby()));
+				printFactions(getLobby()));
 	}
 
 	private void printMatchQuality() {
@@ -1748,7 +1723,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session = getSessionFactory().get().openSession();
 			session.beginTransaction();
 			double gameBalance = RatingHelper.getMatchQuality(getGame()
-					.getTurnOrder(), getWatchWordLobby(), session);
+					.getTurnOrder(), getLobby(), session);
 			NumberFormat format = NumberFormat.getInstance();
 			format.setMaximumFractionDigits(2);
 			format.setMinimumFractionDigits(2);
@@ -1779,7 +1754,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			session = getSessionFactory().get().openSession();
 			session.beginTransaction();
 			RatingHelper.updatePlayerRatings(victors, losers,
-					getWatchWordLobby(), eloBoosterTracker, session);
+					getLobby(), eloBoosterTracker, session);
 			session.getTransaction().commit();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1802,22 +1777,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		this.watchWordLobby = null;
 	}
 
-	private static List<String> generateWords(List<String> wordList,
-			List<String> banishedWordList, int amount, Random rand) {
-		Set<String> words = new HashSet<String>();
-		while (words.size() < amount) {
-			words.add(getWatchWord(wordList, rand));
-			words.removeAll(banishedWordList);
-		}
-		List<String> outputWords = new ArrayList<String>();
-		outputWords.addAll(words);
-		return outputWords;
-	}
-
-	private static String getWatchWord(List<String> wordList, Random random) {
-		return wordList.get((int) (wordList.size() * random.nextDouble()));
-	}
-
 	private static String getUsernameString(SlackUser user, boolean verbose) {
 		if (user == null) {
 			return "<No User>";
@@ -1831,57 +1790,6 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	private static String getUsernameString(SlackUser user) {
 		return getUsernameString(user, false);
-	}
-
-	@SuppressWarnings("unused")
-	private SlackUser findUserById(String id, Collection<SlackUser> members) {
-		for (SlackUser user : members) {
-			if (user.getId().equals(id)) {
-				return user;
-			}
-		}
-		return null;
-	}
-
-	// first exact match, then lowercase match, then partial match, then
-	// lowercase partial match
-	private static SlackUser findUserByUsername(String username,
-			Collection<SlackUser> users) {
-
-		List<Boolean> possibilities = Arrays.asList(false, true);
-		for (boolean caseInsensitivity : possibilities) {
-			for (boolean partialMatch : possibilities) {
-				SlackUser user = findUserByUsername(username,
-						caseInsensitivity, partialMatch, users);
-				if (user != null) {
-					return user;
-				}
-
-			}
-		}
-		return null;
-	}
-
-	private static SlackUser findUserByUsername(String targetUsername,
-			boolean caseInsensitivity, boolean partialMatch,
-			Collection<SlackUser> users) {
-		for (SlackUser user : users) {
-			String currentUsername = user.getUserName();
-			if (caseInsensitivity) {
-				targetUsername = targetUsername.toLowerCase();
-				currentUsername = currentUsername.toLowerCase();
-			}
-			if (partialMatch) {
-				if (currentUsername.startsWith(targetUsername)) {
-					return user;
-				}
-			} else {
-				if (currentUsername.equals(targetUsername)) {
-					return user;
-				}
-			}
-		}
-		return null;
 	}
 
 	private void printUsage(SlackChannel channel, String str) {
@@ -1985,13 +1893,5 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 
 		return "" + minutes + "m " + seconds + "s";
-	}
-}
-
-enum GameState {
-	IDLE, LOBBY, GAME;
-
-	public static GameState[] getAllStates() {
-		return GameState.values();
 	}
 }

@@ -24,7 +24,7 @@ public class Runner {
 
 		WatchWordBot bot = new WatchWordBot(args[0], sessionFactory, ghRepo);
 		try {
-			bot.loadWordList();
+			bot.loadResources();
 			bot.connect();
 		} catch (Exception e) {
 			e.printStackTrace();
