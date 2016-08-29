@@ -1980,6 +1980,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		long seconds = TimeUnit.SECONDS.convert(time, sourceUnit) - minutes
 				* 60;
 
+		if (seconds == 0 && minutes != 0) {
+			return "" + minutes + " min";
+		}
+
 		return "" + minutes + "m " + seconds + "s";
 	}
 }
