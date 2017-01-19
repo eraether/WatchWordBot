@@ -1589,10 +1589,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			}
 			return out;
 		} else {
-			return "A clue has not yet been given.  *"
+			return "A clue has not yet been given.  @"
 					+ getUsernameString(getWatchWordLobby().getUser(
 							game.getTurnOrder().getCurrentTurn().getLeader()))
-					+ "*, please provide a clue.";
+					+ ", please provide a clue.";
 		}
 	}
 
