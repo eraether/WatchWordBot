@@ -394,7 +394,6 @@ charm
 chart
 charter
 chase
-chauvinist
 check
 cheek
 cheese
