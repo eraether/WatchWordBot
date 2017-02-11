@@ -1,8 +1,14 @@
-package com.raether.watchwordbot;
+package com.raether.watchwordbot.commands;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
+
+import com.raether.watchwordbot.GameState;
+import com.raether.watchwordbot.WatchWordBot;
+import com.ullink.slack.simpleslackapi.SlackSession;
+import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 
 public abstract class Command {
 	private String primaryAlias = "";
@@ -10,6 +16,10 @@ public abstract class Command {
 	private String helpText = "";
 	private List<GameState> validGameStates = new ArrayList<GameState>();
 	private boolean hidden = false;
+	
+	public Command(){
+		
+	}
 
 	public Command(String primaryAlias, String helpText,
 			GameState... validGameStates) {
@@ -24,6 +34,7 @@ public abstract class Command {
 
 	public Command(String primaryAlias, List<String> additionalAliases,
 			String helpText, boolean hidden, GameState... validGameStates) {
+		this();
 		this.primaryAlias = primaryAlias;
 		this.additionalAliases = additionalAliases;
 		this.helpText = helpText;
@@ -32,7 +43,8 @@ public abstract class Command {
 	}
 
 	// execute your command!
-	public abstract void run();
+	public abstract void run(WatchWordBot bot, SlackMessagePosted event,
+			LinkedList<String> args, SlackSession session);
 
 	public String getPrimaryAlias() {
 		return this.primaryAlias;
@@ -74,4 +86,7 @@ public abstract class Command {
 		return hidden;
 	}
 
+	public void fireIncorrectUsage() {
+		//do something here TODO
+	}
 }

@@ -1,40 +1,48 @@
 package com.raether.watchwordbot;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import jskills.Rating;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.kohsuke.github.GHIssue;
 import org.kohsuke.github.GHRepository;
 
+import com.raether.watchwordbot.commands.BanishCommand;
+import com.raether.watchwordbot.commands.BotCommand;
+import com.raether.watchwordbot.commands.CancelCommand;
+import com.raether.watchwordbot.commands.ClueCommand;
+import com.raether.watchwordbot.commands.Command;
+import com.raether.watchwordbot.commands.DefineCommand;
+import com.raether.watchwordbot.commands.EndCommand;
+import com.raether.watchwordbot.commands.FeatCommand;
+import com.raether.watchwordbot.commands.GridCommand;
+import com.raether.watchwordbot.commands.GuessCommand;
+import com.raether.watchwordbot.commands.HelpCommand;
+import com.raether.watchwordbot.commands.JoinCommand;
+import com.raether.watchwordbot.commands.KickCommand;
+import com.raether.watchwordbot.commands.ListCommand;
+import com.raether.watchwordbot.commands.LobbyCommand;
+import com.raether.watchwordbot.commands.StartCommand;
+import com.raether.watchwordbot.commands.SwapCommand;
+import com.raether.watchwordbot.commands.SyncCommand;
+import com.raether.watchwordbot.commands.TimeCommand;
+import com.raether.watchwordbot.commands.WinCommand;
 import com.raether.watchwordbot.feat.UserFeatureRequest;
-import com.raether.watchwordbot.gh.GitHubHelper;
-import com.raether.watchwordbot.lex.LexicalDatabaseHelper;
 import com.raether.watchwordbot.meatsim.AIPlayer;
-import com.raether.watchwordbot.meatsim.AISlackPlayer;
 import com.raether.watchwordbot.meatsim.BotThoughtProcess;
 import com.raether.watchwordbot.meatsim.DesiredBotAction;
 import com.raether.watchwordbot.meatsim.PotentialGuess;
@@ -44,19 +52,11 @@ import com.raether.watchwordbot.message.MessageGenerator;
 import com.raether.watchwordbot.ranking.RatingHelper;
 import com.raether.watchwordbot.ranking.RatingPrinter;
 import com.ullink.slack.simpleslackapi.SlackChannel;
-import com.ullink.slack.simpleslackapi.SlackPersona.SlackPresence;
 import com.ullink.slack.simpleslackapi.SlackSession;
 import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.impl.SlackSessionFactory;
 import com.ullink.slack.simpleslackapi.listeners.SlackMessagePostedListener;
-
-import edu.cmu.lti.jawjaw.db.SynsetDefDAO;
-import edu.cmu.lti.jawjaw.pobj.Lang;
-import edu.cmu.lti.jawjaw.pobj.POS;
-import edu.cmu.lti.jawjaw.pobj.Synset;
-import edu.cmu.lti.jawjaw.pobj.SynsetDef;
-import edu.cmu.lti.jawjaw.util.WordNetUtil;
 
 public class WatchWordBot implements SlackMessagePostedListener {
 	// I/O
@@ -70,8 +70,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 	private WordGenerator wordGenerator = new WordGenerator();
 	private List<Thread> aiThreads = new ArrayList<Thread>();
 	private MessageGenerator messageGenerator = new DefaultMessageGenerator();
-	private static Boolean DEBUG = Boolean.FALSE;
+	public static Boolean DEBUG = Boolean.FALSE;
 	private Long lastIssuedCommandTime = null;
+	private TextRenderer textRenderer;
 
 	// add-ons
 	private Optional<SessionFactory> sessionFactory;
@@ -86,6 +87,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	public void loadResources() throws IOException {
 		wordGenerator.loadWordList();
+		textRenderer = new TextRenderer();
 	}
 
 	private void setGHRepo(Optional<GHRepository> repo) {
@@ -135,7 +137,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				TimeUnit.MILLISECONDS);
 	}
 
-	private void reconnect(SlackSession session) {
+	public void reconnect(SlackSession session) {
 		try {
 			session.disconnect();
 		} catch (Exception e) {
@@ -153,7 +155,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		this.slackSession = session;
 	}
 
-	private SlackSession getSession() {
+	public SlackSession getSession() {
 		return this.slackSession;
 	}
 
@@ -163,16 +165,25 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (event.getSender().getId().equals(session.sessionPersona().getId()))
 			return;
 		try {
+			updateRendererScope(event, session);
 			handleCommand(event, session);
+			updateRendererScope(event, session);
 		} catch (Exception e) {
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			PrintStream ps = new PrintStream(baos);
-			e.printStackTrace(ps);
-			String content;
-			content = baos.toString();
-			session.sendMessage(event.getChannel(), "Exception Encountered:\n"
-					+ content);
+			textRenderer.handleException(e);
 		}
+	}
+
+	public void updateRendererScope(SlackMessagePosted event,
+			SlackSession session) {
+		textRenderer.updateScope(event, session);
+	}
+
+	public void updateGameState(GameState state) {
+		this.currentGameState = state;
+	}
+
+	public MessageGenerator getMessageGenerator() {
+		return this.messageGenerator;
 	}
 
 	private synchronized void handleCommand(SlackMessagePosted event,
@@ -193,7 +204,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			Command matchingCommand = findMatchingCommand(commandText, args,
 					commands, event.getChannel());
 			if (matchingCommand != null) {
-				matchingCommand.run();
+				matchingCommand.run(this, event, args, session);
 			}
 		} else {
 			handlePlainTextMessage(event, session);
@@ -215,8 +226,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return;
 		}
 
-		Faction faction = getLobby().getTurnOrder().getFactionFor(
-				player);
+		Faction faction = getLobby().getTurnOrder().getFactionFor(player);
 		if (faction == null) {
 			return;
 		}
@@ -225,7 +235,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private void recordELOEvent(ELOEvent event, Player player) {
+	public void recordELOEvent(ELOEvent event, Player player) {
 		if (getGame() == null) {
 			return;
 		}
@@ -234,8 +244,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return;
 		}
 
-		Faction faction = getLobby().getTurnOrder().getFactionFor(
-				player);
+		Faction faction = getLobby().getTurnOrder().getFactionFor(player);
 		if (faction == null) {
 			return;
 		}
@@ -244,9 +253,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				faction);
 	}
 
-	protected Command findMatchingCommand(String commandText,
-			List<String> args, Collection<Command> commands,
-			SlackChannel channel) {
+	public Command findMatchingCommand(String commandText, List<String> args,
+			Collection<Command> commands, SlackChannel channel) {
 		for (Command command : commands) {
 			if (command.matches(commandText, args)) {
 				if (!isGameCurrentlyInValidGameState(channel,
@@ -259,200 +267,33 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return null;
 	}
 
-	private List<Command> generateCommands(final SlackMessagePosted event,
+	public List<Command> generateCommands(final SlackMessagePosted event,
 			final LinkedList<String> args, final SlackSession session) {
 		List<Command> commands = new ArrayList<Command>();
-
-		commands.add(new Command("lobby",
-				"create a new lobby for players to join", GameState.IDLE) {
-			@Override
-			public void run() {
-				lobbyCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("define", "define a word", GameState.IDLE,
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				defineCommand(event, args, session);
-			}
-
-		});
-
-		commands.add(new Command("bot", Arrays.asList("bots"),
-				"add a bot to the game", false, GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				botCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("cancel", "cancel the game and lobby",
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				cancelCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("list", "show all the players in the game",
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				listCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("grid", Arrays.asList("board"),
-				"show the WatchWords grid", false, GameState.GAME) {
-			@Override
-			public boolean matches(String command, List<String> args) {
-				return super.matches(command, args)
-						|| command.matches("g+r+i+d+");
-			}
-
-			@Override
-			public void run() {
-				gridCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("join", "join the game", GameState.LOBBY,
-				GameState.GAME) {
-			@Override
-			public void run() {
-				joinCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("swap", "switch teams or swap two players",
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				swapCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("time", "shows the remaining time",
-				GameState.GAME) {
-			@Override
-			public void run() {
-				timeCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("kick", Arrays.asList("remove"),
-				"removes the specified player from the game.", false,
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				kickCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("start", "starts the game", GameState.LOBBY) {
-			@Override
-			public void run() {
-				startCommand(event, args, session);
-			}
-
-			@Override
-			public boolean matches(String command, List<String> args) {
-				return super.matches(command, args)
-						|| (command.equals("game") && args.size() == 1 && args
-								.get(0).equals("on"));
-			}
-		});
-
-		commands.add(new Command("clue", "give a clue to your team",
-				GameState.GAME) {
-			@Override
-			public void run() {
-				clueCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("guess", "guess a word", GameState.GAME) {
-			@Override
-			public void run() {
-				guessCommand(event, args, session);
-			}
-		});
-
-		if (DEBUG) {
-			commands.add(new Command("win", "win", true, GameState.GAME) {
-				@Override
-				public void run() {
-					winCommand(event, args, session);
-				}
-			});
-		}
-
-		commands.add(new Command("end", Arrays.asList("pass"),
-				"end the guessing phase", false, GameState.GAME) {
-			@Override
-			public void run() {
-				endCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("sync", "synchronization test", true,
-				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				syncCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("feat", Arrays.asList("feature"),
-				"submit a feature request", false, GameState.IDLE,
-				GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				featCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("help", "yes, this is help", true,
-				GameState.IDLE, GameState.LOBBY, GameState.GAME) {
-			@Override
-			public void run() {
-				helpCommand(event, args, session);
-			}
-		});
-
-		commands.add(new Command("banish",
-				"banish a word from the game forever", GameState.GAME) {
-			@Override
-			public void run() {
-				banishCommand(event, args, session);
-			}
-		});
-
+		commands.add(new BanishCommand());
+		commands.add(new BotCommand());
+		commands.add(new CancelCommand());
+		commands.add(new ClueCommand());
+		commands.add(new DefineCommand());
+		commands.add(new EndCommand());
+		commands.add(new FeatCommand());
+		commands.add(new GridCommand());
+		commands.add(new GuessCommand());
+		commands.add(new HelpCommand());
+		commands.add(new JoinCommand());
+		commands.add(new KickCommand());
+		commands.add(new ListCommand());
+		commands.add(new LobbyCommand());
+		commands.add(new StartCommand());
+		commands.add(new SwapCommand());
+		commands.add(new SyncCommand());
+		commands.add(new TimeCommand());
+		commands.add(new WinCommand());
 		return commands;
 	}
 
-	protected void banishCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-		if (args.isEmpty()) {
-			printUsage(event.getChannel(), "banish [word]");
-			return;
-		}
-
-		String banishedWord = args.pop();
-
-		boolean match = wordGenerator.isWordPresent(banishedWord);
-
-		if (!match) {
-			session.sendMessage(event.getChannel(), "'" + banishedWord
-					+ "' not found in wordlist.");
-			return;
-		}
-
-		session.sendMessage(event.getChannel(),
-				"Banish command not implemented.");
-
+	protected void fireIncorrectCommandUsage() {
+		// printUsage();
 	}
 
 	protected Session createHibernateSession() {
@@ -481,235 +322,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	protected static String printUserFeedbackRequest(GHIssue issue) {
-		return issue.getNumber() + ":" + issue.getTitle() + "("
-				+ issue.getHtmlUrl() + ")";
-	}
-
 	protected static String printUserFeedbackRequest(UserFeatureRequest request) {
 		return request.getId() + ": " + request.getDescription();
 	}
 
-	protected void featCommand(final SlackMessagePosted event,
-			final LinkedList<String> args, final SlackSession session) {
-
-		if (!getGHRepo().isPresent()) {
-			session.sendMessage(event.getChannel(),
-					"Could not establish link to github.");
-			return;
-		}
-		List<Command> featCommands = new ArrayList<Command>();
-
-		featCommands.add(new Command("list", "list all feature requests",
-				GameState.getAllStates()) {
-			@Override
-			public void run() {
-				if (!args.isEmpty()) {
-					printUsage(event.getChannel(), "feat list");
-					return;
-				}
-
-				try {
-					String out = "Feature Requests:\n";
-					List<GHIssue> issues = GitHubHelper
-							.getSlackIssues(getGHRepo().get());
-					for (GHIssue issue : issues) {
-						out += printUserFeedbackRequest(issue) + "\n";
-					}
-					session.sendMessage(event.getChannel(), out);
-				} catch (Exception e) {
-					session.sendMessage(event.getChannel(),
-							"Could not read features");
-				}
-			}
-		});
-		featCommands.add(new Command("add", "add a feature request", GameState
-				.getAllStates()) {
-			@Override
-			public void run() {
-				if (args.isEmpty()) {
-					printUsage(event.getChannel(), "feat add [description]");
-					return;
-				}
-				String description = StringUtils.join(args, " ");
-
-				try {
-					GHIssue issue = GitHubHelper.createGHIssue(getGHRepo()
-							.get(), description, printFullUserDetails(event
-							.getSender()));
-					session.sendMessage(event.getChannel(),
-							"Successfully created issue:"
-									+ printUserFeedbackRequest(issue));
-
-				} catch (Exception e) {
-					session.sendMessage(event.getChannel(),
-							"Could not create issue:" + e);
-				}
-			}
-		});
-
-		featCommands.add(new Command("close", "close a feature request",
-				GameState.getAllStates()) {
-			@Override
-			public void run() {
-				if (args.isEmpty()) {
-					printUsage(event.getChannel(), "feat close [id]");
-					return;
-				}
-				Integer id = null;
-				try {
-					id = Integer.parseInt(args.pop());
-				} catch (Exception e) {
-					session.sendMessage(event.getChannel(), "Could not parse '"
-							+ args.pop() + "'");
-					return;
-				}
-
-				try {
-					List<GHIssue> issues = GitHubHelper
-							.getSlackIssues(getGHRepo().get());
-
-					GHIssue foundIssue = null;
-					for (GHIssue issue : issues) {
-						if (issue.getNumber() == id) {
-							foundIssue = issue;
-							break;
-						}
-					}
-					if (foundIssue == null) {
-						session.sendMessage(event.getChannel(),
-								"Could not find feature with id " + id);
-						return;
-					}
-
-					GitHubHelper.removeGHIssue(getGHRepo().get(),
-							printFullUserDetails(event.getSender()), id);
-					session.sendMessage(event.getChannel(), "Deleted " + id);
-				} catch (Exception e) {
-					session.sendMessage(event.getChannel(),
-							"Could not delete feature with id " + id);
-				}
-			}
-		});
-
-		String featureSubcommandHelp = printCommands("Feature subcommand help",
-				featCommands);
-
-		if (args.isEmpty()) {
-			printUsage(event.getChannel(), "feat [sub_command] (params)");
-			session.sendMessage(event.getChannel(), featureSubcommandHelp);
-			return;
-		}
-
-		String commandText = args.pop();
-		Command command = this.findMatchingCommand(commandText, args,
-				featCommands, event.getChannel());
-		if (command != null) {
-			command.run();
-		} else {
-			session.sendMessage(event.getChannel(), featureSubcommandHelp);
-		}
-
-	}
-
-	private static String printFullUserDetails(SlackUser user) {
-		return user.getUserName() + " (" + user.getRealName() + ")";
-	}
-
-	private void defineCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-		if (!LexicalDatabaseHelper.canBeCreated()) {
-			session.sendMessage(event.getChannel(),
-					"Lexical database link could not be established.");
-			return;
-		}
-
-		if (args.size() != 1) {
-			printUsage(event.getChannel(), "define [word]");
-			return;
-		}
-		String word = args.pop();
-
-		String messageOutput = "Defining *" + word + "*:\n";
-		for (POS pos : POS.values()) {
-			List<edu.cmu.lti.jawjaw.pobj.Synset> synsets = WordNetUtil
-					.wordToSynsets(word, pos);
-			for (Synset synset : synsets) {
-				SynsetDef def = SynsetDefDAO.findSynsetDefBySynsetAndLang(
-						synset.getSynset(), Lang.eng);
-				messageOutput += def.getSynset() + ":" + def.getDef() + "\n";
-			}
-		}
-		session.sendMessage(event.getChannel(), messageOutput);
-	}
-
-	private void winCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		finishGame(Arrays.asList(game.getTurnOrder().getCurrentTurn()), session);
-	}
-
-	private void botCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-
-		int numberOfBots = 1;
-		if (!args.isEmpty()) {
-			try {
-				numberOfBots = Integer.parseInt(args.pop());
-				if (numberOfBots <= 0) {
-					throw new IllegalArgumentException(
-							"Number of bots must be > 0");
-				}
-			} catch (Exception e) {
-				printUsage(event.getChannel(), "bot [# of desired bots]");
-				return;
-			}
-		}
-		boolean addedBots = false;
-		for (int addedBotCount = 0; addedBotCount < numberOfBots; addedBotCount++) {
-			int maxAIPlayers = 4;
-			int totalAIPlayers = this.getLobby().getAIPlayerCount();
-			if (totalAIPlayers >= maxAIPlayers) {
-				session.sendMessage(event.getChannel(),
-						"Can't add any more bots!  You have reached the bot limit ("
-								+ maxAIPlayers + " bots)");
-				break;
-			}
-
-			if (!AIPlayer.canBeCreated()) {
-				session.sendMessage(event.getChannel(),
-						"Sorry, bots cannot be added due to an environmental error.");
-				break;
-			}
-
-			AISlackPlayer slackPlayer = new AISlackPlayer("Sim"
-					+ (totalAIPlayers + 1));
-			Player aiPlayer = new Player(true);
-			getLobby().addUser(slackPlayer, aiPlayer);
-			addedBots = true;
-			session.sendMessage(getCurrentChannel(),
-					getUsernameString(slackPlayer) + " has joined the game!");
-
-		}
-		if (addedBots) {
-			session.sendMessage(getCurrentChannel(),
-					printFactions(getLobby()));
-			printMatchQuality();
-			if (!isAIThreadRunning()) {
-				handleAIGuesses();
-			}
-		}
-	}
-
-	private void helpCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		List<Command> commands = generateCommands(event, args, session);
-
-		session.sendMessage(event.getChannel(),
-				printCommands("Contextual Help", commands));
-
-	}
-
-	private String printCommands(String title, List<Command> commands) {
+	public String printCommands(String title, List<Command> commands) {
 		List<Command> filteredCommands = new ArrayList<Command>();
 		for (Command command : commands) {
 			if (command.getValidGameStates().contains(this.currentGameState)
@@ -730,248 +347,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return totalHelpText;
 	}
 
-	private void lobbyCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-		if (event.getChannel().isDirect()) {
-			session.sendMessage(event.getChannel(),
-					"Cannot start a game in a private message!");
-			return;
-		}
-		session.sendMessage(event.getChannel(),
-				"Reconnecting to slack service to refresh users, one sec...");
-		reconnect(getSession());
-
-		Faction redFaction = new Faction("Red", null);
-		Faction blueFaction = new Faction("Blue", null);
-		List<Faction> playerFactions = new ArrayList<Faction>();
-		playerFactions.add(redFaction);
-		playerFactions.add(blueFaction);
-		TurnOrder turnOrder = new TurnOrder(playerFactions);
-
-		WatchWordLobby watchWordLobby = new WatchWordLobby(event.getChannel(),
-				turnOrder);
-
-		boolean validStart = false;
-		Set<SlackUser> users = new HashSet<SlackUser>();
-		SlackUser lobbyStarter = getLobby()
-				.findUserByUsernameInChannel(event.getSender().getUserName());
-		if (lobbyStarter != null) {
-			users.add(lobbyStarter);
-		}
-		if (args.isEmpty() || args.peek().equals("opt-in")) {
-			validStart = true;
-		} else if (args.peek().equals("opt-out")) {
-			validStart = true;
-			for (SlackUser user : watchWordLobby.getChannel().getMembers()) {
-				SlackPresence presence = session.getPresence(user);
-				if (user.isBot() == false && (presence == SlackPresence.ACTIVE)) {
-					users.add(user);
-				}
-			}
-		} else {
-			printUsage(event.getChannel(), "lobby [(opt-in), opt-out]");
-			return;
-		}
-		if (validStart) {
-			for (SlackUser user : users) {
-				watchWordLobby.addUser(user);
-			}
-			this.watchWordLobby = watchWordLobby;
-			this.currentGameState = GameState.LOBBY;
-			session.sendMessage(getCurrentChannel(),
-					"Created new WatchWord Lobby!");
-			session.sendMessage(getCurrentChannel(),
-					printFactions(getLobby()));
-		}
-	}
-
-	private void cancelCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-		if (currentGameState == GameState.GAME) {
-			session.sendMessage(
-					getCurrentChannel(),
-					"Game has been canceled by "
-							+ getUsernameString(event.getSender()));
-			partialGameReset();
-			session.sendMessage(getCurrentChannel(),
-					printFactions(getLobby()));
-		} else {
-			session.sendMessage(
-					getCurrentChannel(),
-					"Lobby has been canceled by "
-							+ getUsernameString(event.getSender()));
-			fullGameReset();
-		}
-	}
-
-	private void syncCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-
-		session.sendMessage(getCurrentChannel(), "Synchronization test...");
-		try {
-			Thread.sleep(5000);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		session.sendMessage(getCurrentChannel(), "Done!");
-	}
-
-	private void listCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		session.sendMessage(event.getChannel(),
-				printFactions(getLobby()));
-	}
-
-	private void gridCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		session.sendMessage(event.getChannel(), printCardGrid());
-	}
-
-	private void joinCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		if (!getLobby().hasUser(event.getSender())) {
-			getLobby().addUser(event.getSender());
-			session.sendMessage(getCurrentChannel(),
-					getUsernameString(event.getSender())
-							+ " has joined the game!");
-			session.sendMessage(getCurrentChannel(),
-					printFactions(getLobby()));
-			printMatchQuality();
-
-		} else {
-			session.sendMessage(event.getChannel(),
-					getUsernameString(event.getSender())
-							+ ", you're already in the game!");
-		}
-	}
-
-	private void swapCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		if (getLobby().getPlayer(event.getSender()) == null) {
-			session.sendMessage(event.getChannel(),
-					getUsernameString(event.getSender())
-							+ ", you are currently not in this game!");
-			return;
-		}
-
-		Player player = getLobby().getPlayer(event.getSender());
-
-		if (args.isEmpty()) {
-			Faction currentFaction = getLobby().getTurnOrder()
-					.getFactionFor(player);
-			Faction newFaction = getLobby().getTurnOrder()
-					.swapFactions(player);
-
-			session.sendMessage(
-					getCurrentChannel(),
-					getUsernameString(event.getSender()) + " swapped from "
-							+ currentFaction.getName() + " to "
-							+ newFaction.getName() + ".");
-		} else {
-			SlackUser firstUser = null;
-			SlackUser secondUser = null;
-			if (args.size() == 2) {
-				firstUser = getLobby().findUserByUsername(args.pop());
-				secondUser = getLobby().findUserByUsername(args.pop());
-			} else {
-				printUsage(
-						event.getChannel(),
-						"swap - swap yourself to the other team\nswap <player1> <player2> swap two players");
-				return;
-			}
-
-			if (firstUser == null || secondUser == null) {
-				session.sendMessage(event.getChannel(),
-						"Could not find user(s) with those names.");
-				return;
-			}
-
-			Player firstPlayer = getLobby().getPlayer(firstUser);
-			Player secondPlayer = getLobby().getPlayer(secondUser);
-
-			if (firstPlayer == null || secondPlayer == null) {
-				session.sendMessage(event.getChannel(),
-						"One or more of those users are not currently in the game.");
-				return;
-			}
-
-			getLobby().getTurnOrder().swapPlayers(firstPlayer,
-					secondPlayer);
-			session.sendMessage(getCurrentChannel(),
-					getUsernameString(event.getSender()) + " has swapped "
-							+ getUsernameString(firstUser) + " with "
-							+ getUsernameString(secondUser));
-		}
-		session.sendMessage(event.getChannel(),
-				printFactions(getLobby()));
-
-	}
-
-	private void timeCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		if (game.getActingFaction() == null) {
-			session.sendMessage(event.getChannel(),
-					"Game is currently in an invalid state, there is currently no acting faction!");
-			return;
-		}
-		CompetitiveTime time = game.getRemainingTime();
-		if (time == null) {
-			session.sendMessage(event.getChannel(),
-					"There is currently no timer enabled for the "
-							+ game.getActingFaction().getName() + " team.");
-			return;
-		}
-		session.sendMessage(event.getChannel(),
-				"Remaining time for the " + game.getActingFaction().getName()
-						+ " team: " + time.getTime(TimeUnit.SECONDS)
-						+ " secs. (" + time.getOvertime(TimeUnit.SECONDS)
-						+ " secs. of overtime)");
-	}
-
-	private void kickCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		if (args.isEmpty()) {
-			printUsage(event.getChannel(),
-					"[kick|remove] <player1, player2, ...>");
-			return;
-		}
-		while (!args.isEmpty()) {
-			String username = args.pop();
-			SlackUser user = getLobby().findUserByUsername(username);
-			if (user != null) {
-				getLobby().removeUser(user);
-				session.sendMessage(getCurrentChannel(), event.getSender()
-						.getUserName() + " removed " + getUsernameString(user));
-			} else {
-				session.sendMessage(getCurrentChannel(),
-						"Could not find user already in game with username '"
-								+ username + "'.");
-			}
-		}
-		session.sendMessage(watchWordLobby.getChannel(),
-				printFactions(getLobby()));
-		printMatchQuality();
-	}
-
-	private void guessCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-		if (getLobby().getPlayer(event.getSender()) == null) {
-			session.sendMessage(event.getChannel(),
-					getUsernameString(event.getSender())
-							+ ", you are currently not in this game!");
-			return;
-		}
-		if (args.isEmpty()) {
-			printUsage(event.getChannel(), "guess <word>");
-			return;
-		}
-
-		String wordBeingGuessed = args.pop();
-		makeGuess(wordBeingGuessed, session, event.getChannel(),
-				event.getSender());
-	}
-
-	private synchronized void makeGuess(String wordBeingGuessed,
+	public synchronized void makeGuess(String wordBeingGuessed,
 			SlackSession session, SlackChannel eventChannel, SlackUser eventUser) {
 		List<WordTile> results = this.game.getGrid().getTilesForWord(
 				wordBeingGuessed);
@@ -1115,12 +491,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private void endCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		endTurn(session, event.getChannel(), event.getSender());
-	}
-
-	private void endTurn(SlackSession session, SlackChannel eventChannel,
+	public void endTurn(SlackSession session, SlackChannel eventChannel,
 			SlackUser eventUser) {
 		if (getLobby().getPlayer(eventUser) == null) {
 			session.sendMessage(eventChannel, getUsernameString(eventUser)
@@ -1167,180 +538,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		waitForClue();
 	}
 
-	private void clueCommand(SlackMessagePosted event, LinkedList<String> args,
-			SlackSession session) {
-		Player player = getLobby().getPlayer(event.getSender());
-		if (player == null) {
-			session.sendMessage(event.getChannel(), "You are not in the game!");
-			return;
-		}
-
-		if (getLobby().getTurnOrder().getFactionFor(player) != game
-				.getTurnOrder().getCurrentTurn()) {
-			session.sendMessage(event.getChannel(),
-					"It is not your turn to give a clue!");
-			if (DEBUG) {
-				session.sendMessage(event.getChannel(),
-						"However, I'll allow it for now...");
-			} else {
-				return;
-			}
-		}
-
-		if (player != game.getTurnOrder().getCurrentTurn().getLeader()) {
-			session.sendMessage(event.getChannel(),
-					"Only the current turn's leader can give a clue.");
-			if (DEBUG) {
-				session.sendMessage(event.getChannel(),
-						"However, I'll allow it for now...");
-			} else {
-				return;
-			}
-		}
-		if (game.getClue() != null) {
-			session.sendMessage(event.getChannel(), "A clue was already given.");
-			session.sendMessage(event.getChannel(), printGivenClue());
-			return;
-		}
-
-		if (args.size() != 2) {
-			printUsage(event.getChannel(), "clue <word> [amount|unlimited]");
-			return;
-		}
-
-		String word = args.pop();
-		String unparsedNumber = args.pop();
-		int totalGuesses = -1;
-		boolean unlimitedGuesses = false;
-		boolean zeroClue = false;
-
-		if (unparsedNumber.toLowerCase().startsWith("unlimited")) {
-			unlimitedGuesses = true;
-		} else {
-			try {
-				totalGuesses = Integer.parseInt(unparsedNumber);
-				if (totalGuesses == 0) {
-					zeroClue = true;
-				} else if (totalGuesses < 0) {
-					session.sendMessage(event.getChannel(),
-							"You must give a clue with at least one guess!");
-					return;
-				}
-				totalGuesses += 1;// bonus guess
-
-			} catch (Exception e) {
-				session.sendMessage(event.getChannel(), "Could not parse '"
-						+ unparsedNumber + "' as a number.");
-				return;
-			}
-			;
-		}
-
-		List<WordTile> tiles = game.getGrid().getTilesForWord(word);
-		if (!tiles.isEmpty()) {
-			session.sendMessage(event.getChannel(),
-					"Your clue matches tiles on the board!  Please give a different clue.");
-			return;
-		}
-
-		game.giveClue(new WatchWordClue(word, totalGuesses, unlimitedGuesses,
-				zeroClue));
-
-		recordELOEvent(ELOEvent.CLUE_GIVEN, player);
-		session.sendMessage(getCurrentChannel(),
-				getUsernameString(event.getSender()) + " has given a clue.");
-		session.sendMessage(getCurrentChannel(), printGivenClue());
-		session.sendMessage(getCurrentChannel(), printCardGrid());
-		waitForGuess();
-	}
-
-	private void refreshGameResources() {
+	public void refreshGameResources() {
 		refreshBanishedWordList();
 	}
 
 	private void refreshBanishedWordList() {
-	}
-
-	private void startCommand(SlackMessagePosted event,
-			LinkedList<String> args, SlackSession session) {
-
-		if (args.size() == 1) {
-			if (args.pop().equalsIgnoreCase("debug")) {
-				DEBUG = Boolean.TRUE;
-			} else {
-				DEBUG = Boolean.FALSE;
-			}
-		}
-
-		refreshGameResources();
-		currentGameState = GameState.GAME;
-		session.sendMessage(getCurrentChannel(),
-				messageGenerator.getGameStartMessage());
-		long seed1 = System.nanoTime();
-		Random random1 = new Random(seed1);
-		int totalRows = 5;
-		int totalCols = 5;
-		List<String> words = wordGenerator.generateWords(totalRows * totalCols,
-				random1);
-
-		BuildableWatchWordGrid buildableGrid = new BuildableWatchWordGrid(
-				words, totalRows, totalCols);
-
-		TurnOrder turnOrder = this.watchWordLobby.getTurnOrder();
-		turnOrder.shuffle(random1);
-		for (Faction faction : turnOrder.getAllFactions()) {
-
-			long overtimeDuration = 10;
-			TimeUnit overtimeTimeUnit = TimeUnit.MINUTES;
-			faction.setCompetitiveTimer(new CompetitiveTimer(overtimeDuration,
-					overtimeTimeUnit));
-		}
-
-		Faction neutralFaction = new Faction("Neutral", null);
-		Faction assassinFaction = new Faction("Assassin", null);
-
-		int firstFactionCards = 9;
-		int secondFactionCards = 8;
-		int assassinCards = 1;
-
-		buildableGrid.randomlyAssign(turnOrder.getCurrentTurn(),
-				firstFactionCards, random1);
-		buildableGrid.randomlyAssign(turnOrder.getNextTurn(),
-				secondFactionCards, random1);
-		buildableGrid.randomlyAssign(assassinFaction, assassinCards, random1);
-		buildableGrid.fillRemainder(neutralFaction);
-		WatchWordGrid grid = buildableGrid.build();
-		WatchWordGame game = new WatchWordGame(grid, turnOrder, neutralFaction,
-				assassinFaction);
-
-		this.game = game;
-
-		session.sendMessage(getCurrentChannel(), printCardGrid());
-		session.sendMessage(getCurrentChannel(), printFactions(watchWordLobby));
-		session.sendMessage(getCurrentChannel(), printCurrentTurn());
-		session.sendMessage(getCurrentChannel(), printGivenClue());
-
-		for (Faction faction : game.getTurnOrder().getAllFactions()) {
-			if (faction.hasLeader() && !faction.getLeader().isAIControlled()) {
-				SlackUser user = getLobby().getUser(
-						faction.getLeader());
-
-				SlackUser opponent = getLobby().getUser(
-						game.getTurnOrder().getFactionAfter(faction)
-								.getLeader());
-				try {
-					session.sendMessageToUser(
-							user,
-							printWordSmithInstructions(user, opponent, faction,
-									game.getAssassinFaction()), null);
-					session.sendMessageToUser(user, printCardGrid(true), null);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		printMatchQuality();
-		waitForClue();
 	}
 
 	private boolean isGameCurrentlyInValidGameState(SlackChannel channel,
@@ -1354,18 +556,18 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return false;
 	}
 
-	private void waitForClue() {
+	public void waitForClue() {
 		stopAllAIThreads();
 		this.game.startCountingDown(4, TimeUnit.MINUTES);
 	}
 
-	private void waitForGuess() {
+	public void waitForGuess() {
 		stopAllAIThreads();
 		this.game.startCountingDown(2, TimeUnit.MINUTES);
 		handleAIGuesses();
 	}
 
-	private boolean isAIThreadRunning() {
+	public boolean isAIThreadRunning() {
 		return !this.aiThreads.isEmpty();
 	}
 
@@ -1386,7 +588,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		t.start();
 	}
 
-	private void handleAIGuesses() {
+	public void handleAIGuesses() {
 		if (this.game == null)
 			return;
 
@@ -1401,8 +603,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		if (aiGuesseeOnCurrentTeam == null) {
 			return;
 		}
-		final SlackUser aiSlackUser = getLobby().getUser(
-				aiGuesseeOnCurrentTeam);
+		final SlackUser aiSlackUser = getLobby()
+				.getUser(aiGuesseeOnCurrentTeam);
 		sendMessageToCurrentChannel("The AI (" + getUsernameString(aiSlackUser)
 				+ ") is attempting to guess using your provided clue!");
 
@@ -1515,7 +717,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return "(" + faction.getName().substring(0, 1) + ")";
 	}
 
-	private String printWordSmithInstructions(SlackUser user,
+	public String printWordSmithInstructions(SlackUser user,
 			SlackUser opponent, Faction yourFaction, Faction assassinFaction) {
 		String out = "";
 		out += "Hi "
@@ -1542,13 +744,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return this.watchWordLobby;
 	}
 
-	private String printCurrentTurn() {
+	public String printCurrentTurn() {
 		String out = "It is currently *"
 				+ game.getTurnOrder().getCurrentTurn().getName() + "*'s turn.";
 		return out;
 	}
 
-	private String printGivenClue() {
+	public String printGivenClue() {
 		if (game.wasClueGivenThisTurn()) {
 			String out = "Current clue: *" + game.getClue().getWord()
 					+ "*, guesses remaining: ";
@@ -1592,15 +794,15 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return rating;
 	}
 
-	private String printFactions(WatchWordLobby lobby) {
+	public String printFactions() {
 		String out = "Here are the teams:\n";
-		for (Faction faction : lobby.getTurnOrder().getAllFactions()) {
+		for (Faction faction : getLobby().getTurnOrder().getAllFactions()) {
 			String factionString = "[*" + faction.getName() + " team*]\n";
 			for (Player player : faction.getAllPlayers()) {
-				factionString += getUsernameString(lobby.getUser(player));
+				factionString += getUsernameString(getLobby().getUser(player));
 
 				String printedRating = RatingPrinter.printRating(getUserRating(
-						lobby.getUser(player), faction.isLeader(player)));
+						getLobby().getUser(player), faction.isLeader(player)));
 				System.out.println(printedRating);
 				if (printedRating != null) {
 					factionString += " " + printedRating;
@@ -1616,7 +818,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return out;
 	}
 
-	private String printCardGrid(boolean forLeader) {
+	public String printCardGrid(boolean forLeader) {
 		int longestWordLength = 10;
 		for (String word : game.getGrid().getAllWords()) {
 			longestWordLength = Math.max(longestWordLength, word.length());
@@ -1675,11 +877,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return out;
 	}
 
-	private String printCardGrid() {
+	public String printCardGrid() {
 		return printCardGrid(false);
 	}
 
-	private void finishGame(List<Faction> victors, SlackSession session) {
+	public void finishGame(List<Faction> victors, SlackSession session) {
 		String finalCardGrid = printCardGrid(true);
 		session.sendMessage(getCurrentChannel(), "Final Card Grid:\n"
 				+ finalCardGrid);
@@ -1691,8 +893,9 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			List<Player> participatingPlayers = getGame()
 					.getELOBoosterTracker().getCoreParticipantsFor(victor);
 			for (Player player : participatingPlayers) {
-				singleVictorString += getUsernameString(getLobby()
-						.getUser(player)) + "\n";
+				singleVictorString += getUsernameString(getLobby().getUser(
+						player))
+						+ "\n";
 			}
 			victorString += singleVictorString + "\n";
 		}
@@ -1707,11 +910,10 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		getLobby().getTurnOrder().shuffleFactionLeaders();
 		getSession().sendMessage(getCurrentChannel(),
 				"\nReturning back to the game lobby...");
-		getSession().sendMessage(getCurrentChannel(),
-				printFactions(getLobby()));
+		getSession().sendMessage(getCurrentChannel(), printFactions());
 	}
 
-	private void printMatchQuality() {
+	public void printMatchQuality() {
 		if (!this.getSessionFactory().isPresent()) {
 			return;
 		}
@@ -1753,8 +955,8 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		try {
 			session = getSessionFactory().get().openSession();
 			session.beginTransaction();
-			RatingHelper.updatePlayerRatings(victors, losers,
-					getLobby(), eloBoosterTracker, session);
+			RatingHelper.updatePlayerRatings(victors, losers, getLobby(),
+					eloBoosterTracker, session);
 			session.getTransaction().commit();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1765,13 +967,13 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private void partialGameReset() {
+	public void partialGameReset() {
 		this.currentGameState = GameState.LOBBY;
 		stopAllAIThreads();
 		this.game = null;
 	}
 
-	private void fullGameReset() {
+	public void fullGameReset() {
 		partialGameReset();
 		this.currentGameState = GameState.IDLE;
 		this.watchWordLobby = null;
@@ -1788,11 +990,11 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		}
 	}
 
-	private static String getUsernameString(SlackUser user) {
+	public static String getUsernameString(SlackUser user) {
 		return getUsernameString(user, false);
 	}
 
-	private void printUsage(SlackChannel channel, String str) {
+	public void printUsage(SlackChannel channel, String str) {
 		this.getSession().sendMessage(channel, "Usage: " + str);
 	}
 
@@ -1807,7 +1009,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 	}
 
-	private SlackChannel getCurrentChannel() {
+	public SlackChannel getCurrentChannel() {
 		if (this.watchWordLobby == null) {
 			return null;
 		}
@@ -1894,4 +1096,21 @@ public class WatchWordBot implements SlackMessagePostedListener {
 
 		return "" + minutes + "m " + seconds + "s";
 	}
+
+	public WordGenerator getWordGenerator() {
+		return this.wordGenerator;
+	}
+
+	public void setGame(WatchWordGame game) {
+		this.game = game;
+	}
+
+	public void setLobby(WatchWordLobby watchWordLobby) {
+		this.watchWordLobby = watchWordLobby;
+	}
+
+	public GameState getGameState() {
+		return this.currentGameState;
+	}
+
 }
