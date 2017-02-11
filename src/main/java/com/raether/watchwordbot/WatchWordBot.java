@@ -1113,4 +1113,31 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		return this.currentGameState;
 	}
 
+	public void penalizeCurrentFaction(int penaltyAmount) {
+		List<WordTile> remainingUnrevealedWordTiles = game.getGrid()
+				.getUnrevealedTilesForFaction(game.getNextFaction());
+
+		int wordsBeingRevealed = Math.min(penaltyAmount,
+				remainingUnrevealedWordTiles.size() - 1);
+
+		for (int x = 0; x < wordsBeingRevealed; x++) {
+			WordTile randomTile = remainingUnrevealedWordTiles
+					.remove((int) (Math.random() * remainingUnrevealedWordTiles
+							.size()));
+			randomTile.setRevealed(true);
+		}
+
+		getSession().sendMessage(
+				getCurrentChannel(),
+				"*" + game.getActingFaction().getName()
+						+ "* has been penalized for " + wordsBeingRevealed
+						+ " tiles.");
+
+		game.changeTurns();
+		getSession().sendMessage(getCurrentChannel(), printCardGrid());
+		getSession().sendMessage(getCurrentChannel(), printCurrentTurn());
+		getSession().sendMessage(getCurrentChannel(), printGivenClue());
+		waitForClue();
+	}
+
 }

@@ -139,4 +139,8 @@ public class WatchWordGame {
 
 		return everyFaction;
 	}
+
+	public Faction getNextFaction() {
+		return getTurnOrder().getNextTurn();
+	}
 }
