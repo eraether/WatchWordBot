@@ -47,8 +47,8 @@ public class LobbyCommand extends Command {
 
 		boolean validStart = false;
 		Set<SlackUser> users = new HashSet<SlackUser>();
-		SlackUser lobbyStarter = bot.getLobby().findUserByUsernameInChannel(
-				event.getSender().getUserName());
+		SlackUser lobbyStarter = watchWordLobby
+				.findUserByUsernameInChannel(event.getSender().getUserName());
 		if (lobbyStarter != null) {
 			users.add(lobbyStarter);
 		}

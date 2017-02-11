@@ -36,6 +36,7 @@ import com.raether.watchwordbot.commands.JoinCommand;
 import com.raether.watchwordbot.commands.KickCommand;
 import com.raether.watchwordbot.commands.ListCommand;
 import com.raether.watchwordbot.commands.LobbyCommand;
+import com.raether.watchwordbot.commands.PenaltyCommand;
 import com.raether.watchwordbot.commands.StartCommand;
 import com.raether.watchwordbot.commands.SwapCommand;
 import com.raether.watchwordbot.commands.SyncCommand;
@@ -51,6 +52,8 @@ import com.raether.watchwordbot.message.DefaultMessageGenerator;
 import com.raether.watchwordbot.message.MessageGenerator;
 import com.raether.watchwordbot.ranking.RatingHelper;
 import com.raether.watchwordbot.ranking.RatingPrinter;
+import com.raether.watchwordbot.user.UserEntity;
+import com.raether.watchwordbot.user.UserHelper;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackSession;
 import com.ullink.slack.simpleslackapi.SlackUser;
@@ -284,6 +287,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		commands.add(new KickCommand());
 		commands.add(new ListCommand());
 		commands.add(new LobbyCommand());
+		commands.add(new PenaltyCommand());
 		commands.add(new StartCommand());
 		commands.add(new SwapCommand());
 		commands.add(new SyncCommand());
@@ -769,7 +773,7 @@ public class WatchWordBot implements SlackMessagePostedListener {
 			return "A clue has not yet been given.  *"
 					+ getUsernameString(getLobby().getUser(
 							game.getTurnOrder().getCurrentTurn().getLeader()))
-					+ ", please provide a clue.";
+					+ "*, please provide a clue.";
 		}
 	}
 
@@ -896,14 +900,24 @@ public class WatchWordBot implements SlackMessagePostedListener {
 				singleVictorString += getUsernameString(getLobby().getUser(
 						player))
 						+ "\n";
+				assignGBPs(10, "*Congratulations*!  Here are some gbps for winnin'!", player);
 			}
 			victorString += singleVictorString + "\n";
 		}
+
 		session.sendMessage(getCurrentChannel(), victorString);
 
 		ArrayList<Faction> losers = new ArrayList<Faction>(game.getTurnOrder()
 				.getAllFactions());
 		losers.removeAll(victors);
+		for (Faction loser : losers) {
+			List<Player> participatingPlayers = getGame()
+					.getELOBoosterTracker().getCoreParticipantsFor(loser);
+			for (Player player : participatingPlayers) {
+				assignGBPs(5, "Here are some gbps for participating!", player);
+			}
+		}
+
 		updateRankings(victors, losers, game.getELOBoosterTracker());
 
 		partialGameReset();
@@ -911,6 +925,33 @@ public class WatchWordBot implements SlackMessagePostedListener {
 		getSession().sendMessage(getCurrentChannel(),
 				"\nReturning back to the game lobby...");
 		getSession().sendMessage(getCurrentChannel(), printFactions());
+	}
+
+	private void assignGBPs(int gbps, String messageText, Player winner) {
+		if (!this.getSessionFactory().isPresent()) {
+			return;
+		}
+		SlackUser user = this.getLobby().getUser(winner);
+		Session session = null;
+		try {
+			session = getSessionFactory().get().openSession();
+			session.beginTransaction();
+			UserEntity entity = UserHelper.readOrCreateUserEntity(user.getId(),
+					user.getUserName(), session);
+			int oldGBPs = entity.getGBPs();
+			entity.setGBPs(oldGBPs + gbps);
+			session.saveOrUpdate(entity);
+			session.getTransaction().commit();
+			String text = messageText + "  (+*" + gbps + "*).  You now have *"
+					+ entity.getGBPs() + "* gbps!";
+			getSession().sendMessageToUser(user, text, null);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (session != null) {
+				session.close();
+			}
+		}
 	}
 
 	public void printMatchQuality() {

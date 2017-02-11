@@ -3,6 +3,7 @@ package com.raether.watchwordbot;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.collections4.BidiMap;
@@ -27,8 +28,18 @@ public class WatchWordLobby {
 		return this.channel;
 	}
 
+	private Entry<SlackUser, Player> findEntryFor(SlackUser user) {
+		for (Entry<SlackUser, Player> entry : playerMapping.entrySet()) {
+			if (entry.getKey().getId().equals(user.getId())
+					&& entry.getKey().getUserName().equals(user.getUserName())) {
+				return entry;
+			}
+		}
+		return null;
+	}
+
 	public boolean hasUser(SlackUser user) {
-		return playerMapping.containsKey(user);
+		return findEntryFor(user) != null;
 	}
 
 	public boolean addUser(SlackUser user) {
@@ -45,8 +56,12 @@ public class WatchWordLobby {
 	}
 
 	public void removeUser(SlackUser user) {
-		Player player = playerMapping.remove(user);
-		turnOrder.removePlayer(player);
+		Entry<SlackUser, Player> entry = findEntryFor(user);
+		if (entry == null) {
+			return;
+		}
+		playerMapping.remove(entry.getKey(), entry.getValue());
+		turnOrder.removePlayer(entry.getValue());
 	}
 
 	public Set<SlackUser> getUsers() {
@@ -54,7 +69,11 @@ public class WatchWordLobby {
 	}
 
 	public Player getPlayer(SlackUser user) {
-		return playerMapping.get(user);
+		Entry<SlackUser, Player> entry = findEntryFor(user);
+		if (entry == null) {
+			return null;
+		}
+		return entry.getValue();
 	}
 
 	public SlackUser getUser(Player player) {

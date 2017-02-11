@@ -16,6 +16,7 @@ public class UserEntity {
 	private RatingValue guesserRating;
 	@OneToOne
 	private RatingValue clueGiverRating;
+	private int gbps;
 
 	public String getUsername() {
 		return username;
@@ -31,6 +32,14 @@ public class UserEntity {
 
 	public void setUserId(String userId) {
 		this.userId = userId;
+	}
+
+	public int getGBPs() {
+		return gbps;
+	}
+
+	public void setGBPs(int amount) {
+		this.gbps = amount;
 	}
 
 	public RatingValue getGuesserRating() {

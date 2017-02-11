@@ -27,7 +27,7 @@ public class PenaltyCommand extends Command {
 				}
 			} catch (Exception e) {
 				bot.printUsage(event.getChannel(), this.getPrimaryAlias()
-						+ " <penalty severity(0+)>");
+						+ " <severity(0+)>");
 				return;
 			}
 		}

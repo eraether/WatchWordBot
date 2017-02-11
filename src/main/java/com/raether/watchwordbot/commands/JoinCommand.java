@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import com.raether.watchwordbot.GameState;
 import com.raether.watchwordbot.WatchWordBot;
 import com.ullink.slack.simpleslackapi.SlackSession;
+import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 
 public class JoinCommand extends Command {
@@ -16,8 +17,9 @@ public class JoinCommand extends Command {
 	@Override
 	public void run(WatchWordBot bot, SlackMessagePosted event,
 			LinkedList<String> args, SlackSession session) {
-		if (!bot.getLobby().hasUser(event.getSender())) {
-			bot.getLobby().addUser(event.getSender());
+		SlackUser newUser = event.getSender();
+		if (!bot.getLobby().hasUser(newUser)) {
+			bot.getLobby().addUser(newUser);
 			session.sendMessage(bot.getCurrentChannel(),
 					WatchWordBot.getUsernameString(event.getSender())
 							+ " has joined the game!");
